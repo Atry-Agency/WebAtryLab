@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="es-UY">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#faf9f7">
+  <meta name="description" content="Diseño y producción 3D personalizada en Montevideo. Desde una pieza única hasta cientos de unidades.">
+  <title>ATRY LAB · Ideas que toman forma</title>
+  <link rel="icon" href="recursos/favicon.png">
+  <link rel="stylesheet" href="recursos/iconos/phosphor.css">
+  <link rel="stylesheet" href="styles.css?v=50">
+  <link rel="stylesheet" href="printer.css?v=8">
+</head>
+<body>
+  <div class="app" id="app">
+    <header class="desktop-header">
+      <button class="brand" data-route="home" aria-label="ATRY LAB, inicio">
+        <span class="brand-mark"><img src="recursos/atry-isotipo.png" alt=""></span>
+        <span>ATRY <b>LAB</b></span>
+      </button>
+      <nav class="desktop-nav" aria-label="Principal">
+        <button class="nav-item active" data-route="home">Productos</button>
+        <button class="nav-item" data-route="builder">Crear a medida</button>
+        <button class="nav-item" data-route="business">Empresas</button>
+        <button class="nav-item" data-route="process">Cómo funciona</button>
+        <button class="nav-item" data-contact>Contacto</button>
+      </nav>
+      <div class="header-actions">
+        <!-- ATRY Agency temporalmente desactivado. Restaurar href: https://rodrigobrun.github.io/ATRYAGENCY/ -->
+        <span class="agency-header-link agency-disabled" aria-disabled="true">
+          <span>ATRY Agency</span><i class="ph ph-lock-simple" aria-hidden="true"></i>
+        </span>
+        <button class="icon-button" data-focus-search aria-label="Buscar"><i class="ph ph-magnifying-glass" aria-hidden="true"></i></button>
+        <button class="icon-button request-header" data-route="request" aria-label="Mi solicitud"><i class="ph ph-bag" aria-hidden="true"></i><span class="request-bubble" data-count>0</span></button>
+      </div>
+    </header>
+
+    <div class="mobile-topbar">
+      <button class="mobile-brand" data-route="home" aria-label="ATRY LAB, inicio">
+        <img src="recursos/atry-isotipo.png" alt="">
+        <span>ATRY <b>LAB</b></span>
+      </button>
+      <!-- ATRY Agency temporalmente desactivado. Restaurar href: https://rodrigobrun.github.io/ATRYAGENCY/ -->
+      <span class="mobile-agency-link agency-disabled" aria-disabled="true">
+        ATRY Agency <i class="ph ph-lock-simple" aria-hidden="true"></i>
+      </span>
+    </div>
+
+    <main class="view" id="view"></main>
+
+    <nav class="mobile-bar" aria-label="Navegación móvil">
+      <button class="mobile-item active" data-route="home"><span><i class="ph ph-house" aria-hidden="true"></i></span><small>Inicio</small></button>
+      <button class="mobile-item" data-route="catalog"><span><i class="ph ph-squares-four" aria-hidden="true"></i></span><small>Catálogo</small></button>
+      <button class="mobile-item mobile-create" data-route="builder" data-morph="create"><span><i class="ph ph-plus" aria-hidden="true"></i></span><small>Crear</small></button>
+      <button class="mobile-item" data-route="request"><span><i class="ph ph-bag" aria-hidden="true"></i><b class="request-bubble" data-count>0</b></span><small>Solicitud</small></button>
+      <button class="mobile-item" data-route="business"><span><i class="ph ph-buildings" aria-hidden="true"></i></span><small>Empresas</small></button>
+    </nav>
+
+    <div class="transition-layer" id="transition-layer" aria-hidden="true"></div>
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+    <a class="floating-whatsapp" href="https://wa.me/59893802328" target="_blank" rel="noopener" aria-label="Contactar a ATRY LAB por WhatsApp">
+      <i class="ph ph-whatsapp-logo" aria-hidden="true"></i>
+    </a>
+  </div>
+  <script src="recursos/librerias/three.min.js"></script>
+  <script src="recursos/librerias/morphicons.bundle.js?v=2"></script>
+  <script src="printer.js?v=7"></script>
+  <script src="script.js?v=50"></script>
+</body>
+</html>
