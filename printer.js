@@ -21,12 +21,15 @@
     const mobile = matchMedia('(max-width: 767px)').matches;
     const cores = navigator.hardwareConcurrency || 8;
     const memory = navigator.deviceMemory || 8;
+    // Hardware hints control animation cadence, never the visual definition.
+    // Safari commonly reports four logical cores on perfectly capable iPhones;
+    // treating that signal as "low quality" produced a visibly pixelated canvas.
     const constrained = cores <= 4 || memory <= 4;
-    const quality = constrained ? 'low' : mobile ? 'medium' : 'high';
-    const shadows = quality !== 'low';
+    const quality = mobile ? 'medium' : 'high';
+    const shadows = true;
     let renderer;
     try {
-      renderer = new T.WebGLRenderer({ alpha: true, antialias: quality !== 'low', powerPreference: constrained ? 'low-power' : 'high-performance' });
+      renderer = new T.WebGLRenderer({ alpha: true, antialias: true, powerPreference: constrained ? 'low-power' : 'high-performance' });
     } catch (_) {
       status.textContent = 'Diseño y fabricación 3D';
       pause.hidden = true;
@@ -96,14 +99,12 @@
     }
     softbox(3,8,-6,5,4,0xffffff,5);softbox(5,2,3,7,-4,0x7bddff,4);softbox(2,6,6,3,3,0xffffff,3);
     let envMap=null;
-    if(quality!=='low'){
-      const pmrem=new T.PMREMGenerator(renderer);
-      envMap=pmrem.fromScene(environment,.04);scene.environment=envMap.texture;pmrem.dispose();
-    }
+    const pmrem=new T.PMREMGenerator(renderer);
+    envMap=pmrem.fromScene(environment,.04);scene.environment=envMap.texture;pmrem.dispose();
     envResources.forEach(r=>r.dispose());
     scene.add(new T.HemisphereLight(0xc3edff,0x152735,2));
     const key=new T.DirectionalLight(0xf3f7ff,4.5);key.position.set(-3,7,6);key.castShadow=shadows;
-    const shadowSize=quality==='low'?512:quality==='medium'?1024:1536;
+    const shadowSize=quality==='medium'?1024:1536;
     key.shadow.mapSize.set(shadowSize,shadowSize);Object.assign(key.shadow.camera,{left:-4,right:4,top:7,bottom:-3,near:.1,far:20});
     key.shadow.normalBias=.025;key.shadow.bias=-.0003;scene.add(key);
     const rim=new T.DirectionalLight(0x29caff,3);rim.position.set(4,4,-4);scene.add(rim);
@@ -160,7 +161,7 @@
     const contours=[[[-.1874,.767],[.1874,.3923],[.1991,.3571],[.3747,.4976],[.5738,.5679],[.7728,.5562],[.9133,.4976],[1.0304,.4157],[1.2178,.2283],[1.3349,.0644],[1.37,-.0293],[1.1124,-.1815],[1.007,.0176],[.8314,.1932],[.726,.24],[.6557,.24],[.5738,.2049],[.4918,.1229],[.5035,.041],[.8665,-.3454],[.1874,-.767],[-.1991,-.3688],[-.3864,-.5094],[-.5503,-.5679],[-.7377,-.5679],[-.9368,-.4859],[-1.2295,-.2166],[-1.3349,-.0644],[-1.37,.0293],[-1.1124,.1815],[-1.0773,.0878],[-.9719,-.0644],[-.8197,-.2049],[-.7377,-.24],[-.644,-.24],[-.5621,-.2049],[-.4918,-.1229],[-.5035,-.041],[-.6791,.1229],[-.6791,.1464],[-.8665,.3454],[-.2342,.7201],[-.1874,.767]],[[-.1991,.404],[-.4215,.2752],[-.4215,.2518],[.1874,-.3923],[.2225,-.3923],[.4098,-.2752],[.4215,-.2518],[.3747,-.1932],[-.1991,.404]]];
     contours.forEach((points,index)=>{const path=index?new T.Path():outline;path.moveTo(...points[0]);points.slice(1).forEach(p=>path.lineTo(...p));path.closePath();if(index)outline.holes.push(path);});
     const printHeight=.29;
-    const logoGeo=keep(new T.ExtrudeGeometry(outline,{depth:printHeight,steps:1,bevelEnabled:true,bevelSegments:quality==='low'?1:3,bevelSize:.012,bevelThickness:.009,curveSegments:quality==='low'?16:28}));
+    const logoGeo=keep(new T.ExtrudeGeometry(outline,{depth:printHeight,steps:1,bevelEnabled:true,bevelSegments:3,bevelSize:.012,bevelThickness:.009,curveSegments:28}));
     logoGeo.rotateX(-Math.PI/2);
     // Fine printed-layer highlights remain physical, not a blinking scan effect.
     cyan.onBeforeCompile=shader=>{
@@ -220,8 +221,9 @@
     const smoother=t=>t*t*t*(t*(t*6-15)+10);
     function resize(){
       if(disposed)return;const rect=viewport.getBoundingClientRect();
-      const dprCap=quality==='low'?1.5:mobile?3:2;
-      const pixelBudget=quality==='low'?900000:mobile?2200000:3200000;
+      // Preserve Retina sharpness on mobile while bounding total GPU pixels.
+      const dprCap=mobile?2.5:2;
+      const pixelBudget=mobile?2600000:3200000;
       const adaptiveDpr=Math.sqrt(pixelBudget/Math.max(1,rect.width*rect.height));
       renderer.setPixelRatio(Math.min(devicePixelRatio||1,dprCap,adaptiveDpr));
       renderer.setSize(Math.max(1,rect.width),Math.max(1,rect.height),false);
@@ -266,7 +268,8 @@
     function tick(now){
       frame=0;if(disposed||paused||!visible||document.hidden)return;
       const delta=last?Math.min((now-last)/1000,.08):0;last=now;elapsed+=delta;
-      const targetFps=quality==='low'?22:quality==='medium'?30:45;
+      // Constrained devices save work through cadence, not degraded rendering.
+      const targetFps=constrained?24:quality==='medium'?30:45;
       if(now-lastRender>1000/targetFps){draw();lastRender=now;}
       frame=requestAnimationFrame(tick);
     }

@@ -205,11 +205,11 @@ button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible,
 
 @media(max-width:767px){
   html,body{height:100%;overflow:hidden}
-  .app{height:100dvh;display:flex;flex-direction:column;overflow:hidden}
+  .app{height:100dvh;position:relative;display:flex;flex-direction:column;overflow:hidden}
   .mobile-topbar{position:relative;top:auto;flex:0 0 64px}
   .view{min-height:0;flex:1 1 auto;overflow-x:hidden;overflow-y:auto;overscroll-behavior-y:contain;scrollbar-width:none;padding-bottom:32px}
   .view::-webkit-scrollbar{display:none}
-  .mobile-bar{width:calc(100% - 24px);max-width:520px;height:70px;min-height:70px;margin:0 auto max(9px,env(safe-area-inset-bottom));padding:5px 8px;position:relative;left:auto;bottom:auto;flex:0 0 70px;transform:none;border:1px solid var(--line);border-radius:21px;color:#716d6e;background:#fff;box-shadow:0 10px 32px rgba(24,23,25,.12)}
+  .mobile-bar{width:calc(100% - 24px);max-width:520px;height:66px;min-height:66px;margin:0;padding:4px 8px;position:absolute;z-index:45;left:50%;bottom:max(10px,env(safe-area-inset-bottom));flex:none;transform:translateX(-50%);border:1px solid rgba(255,255,255,.82);border-radius:22px;color:#686768;background:rgba(255,255,255,.76);box-shadow:0 15px 39px rgba(8,31,40,.15),inset 0 1px 0 #fff,inset 0 -1px 0 rgba(80,105,114,.05);-webkit-backdrop-filter:blur(20px) saturate(145%);backdrop-filter:blur(20px) saturate(145%)}
   .mobile-item{min-width:0;flex:1;gap:0;color:inherit}
   .mobile-item>span{width:34px;height:34px;font-size:18px}
   .mobile-item small{margin-top:1px;font-size:8px}
@@ -220,7 +220,8 @@ button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible,
   .mobile-create small{margin-top:1px}
   .simple-page{min-height:100%}
   .toast{bottom:calc(88px + env(safe-area-inset-bottom))}
-  body[data-view="detail"] .view,body[data-view="builder"] .view,body[data-view="business"] .view,body[data-view="process"] .view,body[data-view="checkout"] .view,body[data-view="success"] .view{padding-bottom:40px}
+  body[data-view="home"] .view,body[data-view="catalog"] .view,body[data-view="detail"] .view,body[data-view="builder"] .view,body[data-view="business"] .view,body[data-view="process"] .view{padding-bottom:calc(108px + env(safe-area-inset-bottom))}
+  body[data-view="checkout"] .view,body[data-view="success"] .view{padding-bottom:40px}
 }
 
 /* Configuradores específicos por producto */
@@ -380,7 +381,7 @@ button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible,
   .builder-stage>div.builder-live:last-child{min-height:180px}
   body[data-view="detail"] .mobile-bar,body[data-view="builder"] .mobile-bar,body[data-view="business"] .mobile-bar,body[data-view="process"] .mobile-bar{display:flex}
   body[data-view="checkout"] .mobile-bar,body[data-view="success"] .mobile-bar{display:none}
-  body[data-view="detail"] .view,body[data-view="builder"] .view,body[data-view="business"] .view,body[data-view="process"] .view{padding-bottom:32px}
+  body[data-view="detail"] .view,body[data-view="builder"] .view,body[data-view="business"] .view,body[data-view="process"] .view{padding-bottom:calc(108px + env(safe-area-inset-bottom))}
 }
 
 /* Formularios de lanzamiento: contexto, referencias y acciones claras */
