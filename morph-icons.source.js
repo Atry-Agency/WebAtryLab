@@ -16,6 +16,12 @@ const paths={
   truckAlt:'M2 7h11v9H2V7ZM13 10h5l3 4v2h-8v-6ZM6 19a2 2 0 1 0 0-4 2 2 0 0 0 0 4ZM17 19a2 2 0 1 0 0-4 2 2 0 0 0 0 4Z',
   card:'M3 6h18v12H3V6ZM3 10h18M7 15h4',
   cardAlt:'M4 5h16v14H4V5ZM4 9h16M15 15h2M7 15h4',
+  tag:'M20 13 13 20 4 11V4h7l9 9ZM8.5 8.5h.01',
+  tagAlt:'M19 12 12 19 5 12V5h7l7 7ZM9 9h.01',
+  event:'M4 20 8 6l10 10-14 4ZM8 12l4 4M15 4v3M20 8l-3 1M13 2l-1 3',
+  eventAlt:'M5 19 9 5l10 10-14 4ZM9 11l4 4M16 3l-1 3M21 7l-4 2M12 2l1 3',
+  home:'M3 11 12 4l9 7v9h-6v-6H9v6H3v-9',
+  homeAlt:'M4 10 12 3l8 7v10h-5v-6H9v6H4V10',
   upRight:'M7 17 17 7M8 7h9v9',
   arrowRight:'M5 12h14M13 6l6 6-6 6'
 };
@@ -47,6 +53,10 @@ function scan(root=document){
     'trust-clock':['clock','clockAlt'],
     'trust-truck':['truck','truckAlt'],
     'trust-card':['card','cardAlt'],
+    'catalog-brand':['tag','tagAlt'],
+    'catalog-event':['event','eventAlt'],
+    'catalog-home':['home','homeAlt'],
+    'catalog-custom':['ruler','rulerAlt'],
     outbound:['upRight','arrowRight']
   };
   Object.entries(hoverPairs).forEach(([name,[rest,active]])=>root.querySelectorAll?.(`[data-morph="${name}"]`).forEach(holder=>{

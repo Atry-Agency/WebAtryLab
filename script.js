@@ -251,7 +251,7 @@
   const featured = ["llaveros","porta-qr","souvenirs","trofeos","organizadores","prototipos","logos-3d","mascotas"];
   const storedItems=readStorage(STORAGE_REQUEST,[]);
   const state = {
-    route:"home", current:products[0], category:"Todos", search:"", items:Array.isArray(storedItems)?storedItems:[],
+    route:"home", current:products[0], category:"Todos", search:"", catalogLimit:12, items:Array.isArray(storedItems)?storedItems:[],
     quantity:"",customQuantity:"",size:"",colors:new Set(),design:"Necesito ayuda",deadline:"",deadlineDate:"",file:"",files:[],
     answers:defaultAnswers(getProductProfile(products[0])),filePreview:"",filePreviews:[],customerName:"", customerContext:"", customerMessage:"",
     favorites:new Set(readStorage(STORAGE_FAVORITES,[])),editingUid:"",origin:null,messageWasCompacted:false,
@@ -419,6 +419,43 @@
     <section class="reviews-section" data-entry><div class="reviews-head"><small>EXPERIENCIAS ATRY</small><h2>Ideas que ya tomaron forma.</h2></div><div class="reviews-window"><div class="reviews-track">${Array.from({length:4},(_,index)=>`<article class="review-card"> <img src="${["recursos/imagenes/productos/llaveros.png","recursos/imagenes/productos/trofeos-atry.png","recursos/imagenes/productos/porta-qr-atry.png","recursos/imagenes/productos/souvenirs-atry.png"][index]}" alt="Producto realizado por ATRY LAB"><div>${reviewRating(reviewRatings[index])}<blockquote>“${reviewQuotes[index]}”</blockquote><strong>${reviewClients[index]}</strong><small>${reviewProducts[index]}</small></div></article>`).join("")}</div></div></section>`:""}`;
   }
 
+  function catalog(){
+    const list=filteredProducts();
+    const visible=list.slice(0,state.catalogLimit);
+    const categoryLabel=state.category==="Todos"?"Todas las ideas":state.category;
+    const heading=state.search?`Resultados para “${escapeText(state.search)}”`:state.category==="Todos"?"Todo lo que podemos hacer.":`${escapeText(categoryLabel)} para explorar.`;
+    const popular=["llaveros","porta-qr","souvenirs","trofeos"].map(id=>products.find(product=>product.id===id)).filter(Boolean);
+    const intents=[
+      ["Personalizados","MARCAS","Para mi marca","Logos, regalos y piezas con tu identidad.","catalog-brand","ph-tag"],
+      ["Eventos","EVENTOS","Para un evento","Recuerdos, carteles y premios.","catalog-event","ph-confetti"],
+      ["Hogar","TU ESPACIO","Para casa","Objetos útiles para todos los días.","catalog-home","ph-house-line"],
+      ["A medida","A MEDIDA","Tengo otra idea","Una pieza que todavía no existe.","catalog-custom","ph-pencil-ruler"]
+    ];
+    return `<section class="catalog-experience">
+      <header class="catalog-landing" data-entry>
+        <div><small>CATÁLOGO ATRY</small><h1>Encontrá algo para vos.<br><span>O hagámoslo desde cero.</span></h1><p>Mirá lo nuevo.</p></div>
+        <button class="catalog-create" data-route="builder"><span><img src="recursos/atry-isotipo.png" alt=""></span><span><b>Creá una pieza propia</b><small>Contanos qué imaginaste.</small></span><i class="ph ph-arrow-right" aria-hidden="true"></i></button>
+      </header>
+
+      <section class="catalog-start" aria-labelledby="catalog-start-title">
+        <div class="catalog-start-copy" data-entry><small>EMPEZÁ POR ACÁ</small><h2 id="catalog-start-title">¿Para qué lo necesitás?</h2><p>Elegí una opción y te mostramos lo más cercano.</p></div>
+        <div class="catalog-intents" aria-label="Explorar el catálogo según lo que necesitás">${intents.map(([value,eyebrow,title,text,morph,icon])=>`<button data-catalog-intent="${value}" data-entry><span class="catalog-intent-top"><span class="catalog-intent-icon" data-morph="${morph}"><i class="ph ${icon}" aria-hidden="true"></i></span><span class="catalog-intent-arrow"><i class="ph ph-arrow-up-right" aria-hidden="true"></i></span></span><span class="catalog-intent-copy"><small>${eyebrow}</small><b>${title}</b><span>${text}</span></span></button>`).join("")}</div>
+      </section>
+
+      ${!state.search&&state.category==="Todos"?`<section class="catalog-popular"><div class="catalog-section-title" data-entry><small>LOS QUE MÁS NOS PIDEN</small><h2>Cuatro buenos lugares para empezar.</h2></div><div class="catalog-popular-grid">${popular.map(product=>`<button class="catalog-popular-card" data-product="${product.id}" data-entry><img data-product-image src="${imageFor(product)}" alt="${product.name}" loading="lazy" decoding="async"><span><small>${product.group.split(" · ")[0]}</small><strong>${product.name}</strong><em>Ver producto <i class="ph ph-arrow-right" aria-hidden="true"></i></em></span></button>`).join("")}</div></section>`:""}
+
+      <section class="catalog-results" id="catalog-results" aria-labelledby="catalog-results-title">
+        <div class="catalog-search-wrap" data-entry><label class="catalog-search"><i class="ph ph-magnifying-glass" aria-hidden="true"></i><input id="search" type="search" value="${escapeText(state.search)}" aria-label="Buscar en el catálogo" placeholder="¿Qué estás buscando?"></label><span><i class="ph ph-map-pin" aria-hidden="true"></i> Hecho en Montevideo</span></div>
+        <div class="catalog-filter-strip" data-entry>${categories.map(category=>`<button class="${state.category===category.name?"active":""}" data-category="${category.name}" aria-pressed="${state.category===category.name}"><i class="ph ${category.icon}" aria-hidden="true"></i>${category.name}</button>`).join("")}</div>
+        <div class="catalog-results-head" data-entry><div><small>PARA MIRAR CON CALMA</small><h2 id="catalog-results-title">${heading}</h2></div><span>Mostrando ${visible.length} de ${list.length}</span></div>
+        <div class="product-grid catalog-product-grid">${visible.length?visible.map(productCard).join(""):`<div class="catalog-empty" data-entry><i class="ph ph-sparkle" aria-hidden="true"></i><h3>No apareció, pero puede existir.</h3><p>Contanos qué necesitás y vemos cómo hacerlo.</p><button data-route="builder">Crear desde cero <i class="ph ph-arrow-right" aria-hidden="true"></i></button><button class="catalog-reset" data-catalog-reset>Limpiar búsqueda</button></div>`}</div>
+        ${visible.length<list.length?`<button class="catalog-more" data-catalog-more>Ver más ideas <span>${list.length-visible.length} restantes</span><i class="ph ph-arrow-down" aria-hidden="true"></i></button>`:""}
+      </section>
+
+      <aside class="catalog-tail" data-entry><span><img src="recursos/atry-isotipo.png" alt=""></span><div><small>NO TODO TIENE QUE ESTAR EN UN CATÁLOGO</small><h2>¿No apareció lo que imaginabas?</h2><p>Mandanos una referencia, un dibujo o simplemente contanos la idea.</p></div><button data-route="builder">Crear algo desde cero <i class="ph ph-arrow-right" aria-hidden="true"></i></button></aside>
+    </section>`;
+  }
+
   function configurationField(field){
     const value=state.answers[field.key]||"";const optional=field.optional?` <em>(opcional)</em>`:` <em class="required">*</em>`;
     const labelId=`field-${field.key}`;
@@ -563,7 +600,7 @@
     return `<section class="process-page"><div class="process-head" data-entry><button class="round" data-route="home" aria-label="Volver al inicio"><i class="ph ph-arrow-left" aria-hidden="true"></i></button><small>UN PROCESO SIMPLE</small><h1>Vos traés la idea.<br><span>Nosotros hacemos el resto.</span></h1><p>No necesitás saber de diseño ni impresión 3D. Te acompañamos desde la idea hasta la pieza terminada.</p></div><div class="process-list">${steps.map(([title,text,icon],index)=>`<article data-entry><span>0${index+1}</span><i class="ph ${icon}" aria-hidden="true"></i><div><h2>${title}</h2><p>${text}</p></div></article>`).join("")}</div><section class="faq" data-entry><div><small>PREGUNTAS FRECUENTES</small><h2>Todo lo que necesitás saber.</h2></div><div>${faqs.map(([question,answer],index)=>`<details ${index===0?"open":""}><summary>${question}</summary><p>${answer}</p></details>`).join("")}</div></section><div class="process-final" data-entry><div><h2>¿Ya sabés qué querés hacer?</h2><p>Contanos tu idea y te ayudamos a definir el resto.</p></div><button class="primary" data-route="builder">Empezar mi proyecto <i class="ph ph-arrow-right" aria-hidden="true"></i></button></div></section>`;
   }
 
-  const templates={home:()=>home(false),catalog:()=>home(true),detail,request,checkout,success,builder:builderV2,business:businessV2,process:processV2};
+  const templates={home:()=>home(false),catalog,detail,request,checkout,success,builder:builderV2,business:businessV2,process:processV2};
 
   function siteFooter(){
     return `<footer class="site-footer" id="contacto" data-entry><!-- ATRY Agency temporalmente desactivado. Restaurar href: https://rodrigobrun.github.io/ATRYAGENCY/ --><div class="atry-network agency-disabled" aria-disabled="true"><span><small>ATRY ECOSYSTEM</small><strong>Creamos productos. También construimos marcas.</strong></span><span class="atry-network-destination">ATRY Agency · próximamente <i class="ph ph-lock-simple" aria-hidden="true"></i></span></div><div class="footer-identity"><span class="footer-brand"><img src="recursos/atry-isotipo.png" alt=""><b>ATRY LAB</b></span><p>Diseño y producción 3D personalizada en Montevideo.</p></div><div class="footer-social"><small>ENCONTRANOS EN</small><nav aria-label="Redes y contacto"><a href="https://www.instagram.com/atrylab?stkn=MXhvcWVobW5sdTJlOA==" target="_blank" rel="noopener"><i class="ph ph-instagram-logo"></i> Instagram <span class="outbound-icon" data-morph="outbound"><i class="ph ph-arrow-up-right" aria-hidden="true"></i></span></a><span class="contact-pending" title="Enlace pendiente"><i class="ph ph-tiktok-logo"></i> TikTok</span><a href="mailto:atryagency@gmail.com"><i class="ph ph-envelope-simple"></i> Email</a><a href="https://wa.me/${PHONE}" target="_blank" rel="noopener"><i class="ph ph-whatsapp-logo"></i> WhatsApp <span class="outbound-icon" data-morph="outbound"><i class="ph ph-arrow-up-right" aria-hidden="true"></i></span></a></nav></div><small class="footer-copy">© 2026 ATRY LAB · Montevideo, Uruguay</small></footer>`;
@@ -578,7 +615,7 @@
 
   function render({entry=true,scroll=true}={}){
     const previousStudio=view.querySelector('[data-printer-studio]');
-    const keepStudio=previousStudio&&['home','catalog'].includes(state.route);
+    const keepStudio=previousStudio&&state.route==="home";
     if(!keepStudio)window.atryPrinter?.dispose();
     updateNav(); const showFooter=["home","catalog","process"].includes(state.route);view.innerHTML=(templates[state.route]||templates.home)()+(showFooter?siteFooter():"");
     if(keepStudio)view.querySelector('[data-printer-studio]')?.replaceWith(previousStudio);
@@ -692,8 +729,11 @@
     view.querySelectorAll("[data-route]").forEach(button=>button.addEventListener("click",()=>{state.editingUid="";state.route=button.dataset.route;render();}));
     view.querySelectorAll("[data-product]").forEach(card=>card.addEventListener("click",event=>{if(event.target.closest("[data-configure]"))return;openProduct(card.dataset.product,card.querySelector("[data-product-image]"));}));
     view.querySelectorAll("[data-configure]").forEach(button=>button.addEventListener("click",event=>{event.stopPropagation();const card=button.closest("[data-product]");openProduct(button.dataset.configure,card?.querySelector("[data-product-image]"));}));
-    view.querySelectorAll("[data-category]").forEach(button=>button.addEventListener("click",()=>{state.category=button.dataset.category;state.search="";render({scroll:false});}));
-    const search=view.querySelector("#search");if(search)search.addEventListener("input",()=>{state.search=search.value;state.route=state.search?"catalog":state.route;render({scroll:false,entry:false});setTimeout(()=>{const next=view.querySelector("#search");next?.focus();next?.setSelectionRange(next.value.length,next.value.length);},0);});
+    view.querySelectorAll("[data-category]").forEach(button=>button.addEventListener("click",()=>{state.category=button.dataset.category;state.search="";state.catalogLimit=12;render({scroll:false});}));
+    view.querySelectorAll("[data-catalog-intent]").forEach(button=>button.addEventListener("click",()=>{state.category=button.dataset.catalogIntent;state.search="";state.catalogLimit=12;render({scroll:false});setTimeout(()=>view.querySelector("#catalog-results")?.scrollIntoView({behavior:"smooth",block:"start"}),40);}));
+    view.querySelector("[data-catalog-more]")?.addEventListener("click",()=>{state.catalogLimit+=12;render({scroll:false,entry:false});});
+    view.querySelector("[data-catalog-reset]")?.addEventListener("click",()=>{state.search="";state.category="Todos";state.catalogLimit=12;render({scroll:false});});
+    const search=view.querySelector("#search");if(search)search.addEventListener("input",()=>{state.search=search.value;if(state.search){state.route="catalog";state.category="Todos";}state.catalogLimit=12;render({scroll:false,entry:false});setTimeout(()=>{const next=view.querySelector("#search");next?.focus();next?.setSelectionRange(next.value.length,next.value.length);},0);});
     view.querySelectorAll("[data-option]").forEach(group=>group.addEventListener("click",event=>{const button=event.target.closest("button");if(!button)return;state[group.dataset.option]=button.dataset.value;if(group.dataset.option==="quantity"&&button.dataset.value!=="Otra")state.customQuantity="";if(group.dataset.option==="deadline"&&button.dataset.value!=="Fecha definida")state.deadlineDate="";render({scroll:false,entry:false});bounce(view.querySelector(`[data-option='${group.dataset.option}'] button[data-value='${button.dataset.value}']`));}));
     view.querySelectorAll("[data-answer]").forEach(group=>group.addEventListener("click",event=>{const button=event.target.closest("button");if(!button)return;state.answers[group.dataset.answer]=button.dataset.value;group.querySelectorAll("button").forEach(item=>{const selected=item===button;item.classList.toggle("active",selected);item.setAttribute("aria-pressed",String(selected));});const field=group.closest(".config-field");field?.classList.remove("invalid");field?.removeAttribute("aria-invalid");bounce(button);}));
     view.querySelectorAll("[data-answer-multi]").forEach(group=>group.addEventListener("click",event=>{const button=event.target.closest("button");if(!button)return;const key=group.dataset.answerMulti;const current=Array.isArray(state.answers[key])?[...state.answers[key]]:[];const index=current.indexOf(button.dataset.value);if(index>=0)current.splice(index,1);else current.push(button.dataset.value);state.answers[key]=current;group.querySelectorAll("button").forEach(item=>{const selected=current.includes(item.dataset.value);item.classList.toggle("active",selected);item.setAttribute("aria-pressed",String(selected));});const field=group.closest(".config-field");if(current.length){field?.classList.remove("invalid");field?.removeAttribute("aria-invalid");}bounce(button);}));
@@ -723,7 +763,7 @@
   }
 
   document.addEventListener("click",event=>{
-    const route=event.target.closest("[data-route]");if(route&&!view.contains(route)){state.editingUid="";state.route=route.dataset.route;if(state.route==="catalog"){state.category="Todos";state.search="";}render();}
+    const route=event.target.closest("[data-route]");if(route&&!view.contains(route)){state.editingUid="";state.route=route.dataset.route;if(state.route==="catalog"){state.category="Todos";state.search="";state.catalogLimit=12;}render();}
     if(event.target.closest("[data-contact]")){state.editingUid="";state.route="home";state.search="";state.category="Todos";render();setTimeout(()=>view.querySelector("#contacto")?.scrollIntoView({behavior:"smooth",block:"start"}),60);}
     if(event.target.closest("[data-focus-search]")){state.route="catalog";render();setTimeout(()=>view.querySelector("#search")?.focus(),40);}
   });
