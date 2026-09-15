@@ -32,7 +32,8 @@
       pause.hidden = true;
       return;
     }
-    renderer.setPixelRatio(Math.min(devicePixelRatio || 1, quality === 'low' ? 1 : quality === 'medium' ? 1.3 : 1.7));
+    // Retina phones need a denser canvas; constrained devices keep a lighter cap.
+    renderer.setPixelRatio(Math.min(devicePixelRatio || 1, quality === 'low' ? 1.25 : quality === 'medium' ? 2 : 1.8));
     renderer.setClearColor(0x000000, 0);
     renderer.outputColorSpace = T.SRGBColorSpace;
     renderer.toneMapping = T.ACESFilmicToneMapping;
