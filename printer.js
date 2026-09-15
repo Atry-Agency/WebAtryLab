@@ -26,14 +26,12 @@
     const shadows = quality !== 'low';
     let renderer;
     try {
-      renderer = new T.WebGLRenderer({ alpha: true, antialias: quality !== 'low', powerPreference: 'low-power' });
+      renderer = new T.WebGLRenderer({ alpha: true, antialias: quality !== 'low', powerPreference: constrained ? 'low-power' : 'high-performance' });
     } catch (_) {
       status.textContent = 'Diseño y fabricación 3D';
       pause.hidden = true;
       return;
     }
-    // Retina phones need a denser canvas; constrained devices keep a lighter cap.
-    renderer.setPixelRatio(Math.min(devicePixelRatio || 1, quality === 'low' ? 1.25 : quality === 'medium' ? 2 : 1.8));
     renderer.setClearColor(0x000000, 0);
     renderer.outputColorSpace = T.SRGBColorSpace;
     renderer.toneMapping = T.ACESFilmicToneMapping;
@@ -105,7 +103,8 @@
     envResources.forEach(r=>r.dispose());
     scene.add(new T.HemisphereLight(0xc3edff,0x152735,2));
     const key=new T.DirectionalLight(0xf3f7ff,4.5);key.position.set(-3,7,6);key.castShadow=shadows;
-    key.shadow.mapSize.set(quality==='medium'?512:1024,quality==='medium'?512:1024);Object.assign(key.shadow.camera,{left:-4,right:4,top:7,bottom:-3,near:.1,far:20});
+    const shadowSize=quality==='low'?512:quality==='medium'?1024:1536;
+    key.shadow.mapSize.set(shadowSize,shadowSize);Object.assign(key.shadow.camera,{left:-4,right:4,top:7,bottom:-3,near:.1,far:20});
     key.shadow.normalBias=.025;key.shadow.bias=-.0003;scene.add(key);
     const rim=new T.DirectionalLight(0x29caff,3);rim.position.set(4,4,-4);scene.add(rim);
     const front=new T.DirectionalLight(0xffffff,1.2);front.position.set(4,2,6);scene.add(front);
@@ -221,6 +220,10 @@
     const smoother=t=>t*t*t*(t*(t*6-15)+10);
     function resize(){
       if(disposed)return;const rect=viewport.getBoundingClientRect();
+      const dprCap=quality==='low'?1.5:mobile?3:2;
+      const pixelBudget=quality==='low'?900000:mobile?2200000:3200000;
+      const adaptiveDpr=Math.sqrt(pixelBudget/Math.max(1,rect.width*rect.height));
+      renderer.setPixelRatio(Math.min(devicePixelRatio||1,dprCap,adaptiveDpr));
       renderer.setSize(Math.max(1,rect.width),Math.max(1,rect.height),false);
       camera.aspect=rect.width/Math.max(1,rect.height);camera.updateProjectionMatrix();
       if(paused)draw();
