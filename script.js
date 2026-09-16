@@ -247,6 +247,7 @@
     const key=profileByProduct[product.id]||fallback;return {...productProfiles[key],key};
   }
   function defaultAnswers(profile){return Object.fromEntries(profile.fields.map(field=>[field.key,field.type==="multi"?[]:""]));}
+  function emptyBuilder(){return {type:"",use:"",details:{personalizacion:[]},quantity:"",customQuantity:"",size:"",environment:[],measure:"",deadline:"",deadlineDate:"",file:"",files:[],fileObjects:[],filePreview:"",filePreviews:[],idea:""};}
 
   const featured = ["llaveros","porta-qr","souvenirs","trofeos","organizadores","prototipos","logos-3d","mascotas"];
   const storedItems=readStorage(STORAGE_REQUEST,[]);
@@ -255,8 +256,10 @@
     quantity:"",customQuantity:"",size:"",colors:new Set(),design:"Necesito ayuda",deadline:"",deadlineDate:"",file:"",files:[],fileObjects:[],
     answers:defaultAnswers(getProductProfile(products[0])),filePreview:"",filePreviews:[],customerName:"", customerContext:"", customerMessage:"",
     favorites:new Set(readStorage(STORAGE_FAVORITES,[])),editingUid:"",origin:null,messageWasCompacted:false,builderStep:0,
-    builder:{type:"",use:"",details:{personalizacion:[]},quantity:"",customQuantity:"",size:"",environment:[],measure:"",deadline:"",deadlineDate:"",file:"",files:[],fileObjects:[],filePreview:"",filePreviews:[],idea:""}
+    builder:emptyBuilder()
   };
+
+  function resetBuilderDraft(){state.builder=emptyBuilder();state.builderStep=0;state.editingUid="";}
 
   function persistRequest(){writeStorage(STORAGE_REQUEST,state.items.map(({referencePreview,referencePreviews,fileObjects,...item})=>({...item,image:String(item.image||"").startsWith("blob:")?builderStockImage(item.answers?.tipo):item.image})));}
   function persistFavorites(){writeStorage(STORAGE_FAVORITES,[...state.favorites]);}
@@ -508,9 +511,9 @@
 
   function request(){
     if(!state.items.length)return `<section class="simple-page"><div class="page-head" data-entry><button class="round" data-route="home" aria-label="Volver al inicio"><i class="ph ph-arrow-left" aria-hidden="true"></i></button><h1>Mi solicitud</h1><span></span></div><div class="empty-state" data-entry><i class="ph ph-bag" aria-hidden="true"></i><h2>Está vacía por ahora</h2><p>Elegí un producto o empezá una idea desde cero.</p><button class="primary" data-route="home">Explorar productos</button></div></section>`;
-    return `<section class="simple-page"><div class="page-head" data-entry><button class="round" data-route="home" aria-label="Volver al inicio"><i class="ph ph-arrow-left" aria-hidden="true"></i></button><h1>Mi solicitud</h1><span>${state.items.length} ${state.items.length===1?"idea":"ideas"}</span></div>
-      <div class="request-items">${state.items.map(item=>`<article class="request-item" data-entry><img data-request-image="${item.uid}" src="${item.image}" alt="${item.name}"><div><small>${item.group}</small><h3>${item.name}</h3><p>${item.quantity} un. · ${itemAnswerRows(item).slice(0,2).map(([,value])=>escapeText(value)).join(" · ")||`${item.size} · ${item.colors}`}</p><span class="request-deadline"><i class="ph ph-calendar-blank" aria-hidden="true"></i> ${escapeText(deadlineText(item.deadline,item.deadlineDate))}</span>${item.idea?`<em>${escapeText(item.idea)}</em>`:""}${itemAnswerRows(item).length?`<details class="item-configuration"><summary>Ver configuración</summary>${itemAnswerRows(item).map(([label,value])=>`<span><b>${label}</b>${escapeText(value)}</span>`).join("")}</details>`:""}${item.file?`<span><i class="ph ph-paperclip" aria-hidden="true"></i> ${escapeText(item.file)}</span>`:""}</div><div class="request-item-actions"><button data-edit="${item.uid}" aria-label="Editar ${item.name}"><i class="ph ph-pencil-simple" aria-hidden="true"></i></button><button data-remove="${item.uid}" aria-label="Quitar ${item.name}"><i class="ph ph-trash" aria-hidden="true"></i></button></div></article>`).join("")}</div>
-      <div class="request-summary" data-entry><div><span>Diseño y revisión</span><strong>Incluidos en la evaluación</strong></div><div><span>Precio y plazo</span><strong>Se confirman personalmente</strong></div><small class="request-limit">Podés consultar hasta ${MAX_ITEMS} ideas juntas para que el mensaje llegue completo y ordenado.</small><div class="request-next-actions"><button class="secondary-button" data-route="catalog"><i class="ph ph-plus"></i> Seguir agregando</button><button class="primary" data-route="checkout">Continuar <i class="ph ph-arrow-right"></i></button></div></div>
+    return `<section class="simple-page request-page"><div class="request-page-head" data-entry><button class="round" data-route="home" aria-label="Volver al inicio"><i class="ph ph-arrow-left" aria-hidden="true"></i></button><div><small>SOLICITUD DE COTIZACIÓN</small><h1>Tu selección</h1><p>Revisá cada idea antes de enviarla. Todavía podés editarla o sumar otra.</p></div><span>${state.items.length} ${state.items.length===1?"idea":"ideas"}</span></div>
+      <div class="request-items">${state.items.map((item,index)=>{const rows=itemAnswerRows(item).filter(([label])=>label.toLowerCase()!=="idea");return `<article class="request-item" data-entry><div class="request-item-visual"><img data-request-image="${item.uid}" src="${item.image}" alt="${item.name}"><span>${String(index+1).padStart(2,"0")}</span></div><div class="request-item-content"><small>${item.group}</small><h3>${item.name}</h3>${item.idea?`<p class="request-idea">${escapeText(item.idea)}</p>`:""}<div class="request-meta"><span><i class="ph ph-stack" aria-hidden="true"></i><b>${item.quantity}</b> ${item.quantity==="1"?"unidad":"unidades"}</span><span><i class="ph ph-calendar-blank" aria-hidden="true"></i>${escapeText(deadlineText(item.deadline,item.deadlineDate))}</span>${item.file?`<span><i class="ph ph-paperclip" aria-hidden="true"></i>${item.files?.length||1} ${item.files?.length===1?"referencia":"referencias"}</span>`:""}</div>${rows.length?`<details class="item-configuration"><summary>Ver todos los detalles <i class="ph ph-caret-down" aria-hidden="true"></i></summary><div class="request-config-grid">${rows.map(([label,value])=>`<span><b>${label}</b><em>${escapeText(value)}</em></span>`).join("")}</div></details>`:""}</div><div class="request-item-actions"><button data-edit="${item.uid}" aria-label="Editar ${item.name}"><i class="ph ph-pencil-simple" aria-hidden="true"></i><span>Editar</span></button><button data-remove="${item.uid}" aria-label="Quitar ${item.name}"><i class="ph ph-trash" aria-hidden="true"></i><span>Quitar</span></button></div></article>`;}).join("")}</div>
+      <div class="request-summary" data-entry><div class="request-summary-copy"><small>LISTO PARA EL SIGUIENTE PASO</small><h2>Te respondemos personalmente.</h2><p>Revisamos el diseño, el material y las horas de impresión antes de confirmarte precio y plazo.</p></div><div class="request-assurances"><span><i class="ph ph-check-circle" aria-hidden="true"></i>Sin pagos ahora</span><span><i class="ph ph-check-circle" aria-hidden="true"></i>Sin compromiso</span><span><i class="ph ph-check-circle" aria-hidden="true"></i>Respuesta por WhatsApp</span></div><small class="request-limit">Podés consultar hasta ${MAX_ITEMS} ideas en un mismo mensaje.</small><div class="request-next-actions"><button class="secondary-button" data-new-builder><i class="ph ph-plus"></i> Crear otra idea</button><button class="primary" data-route="checkout">Continuar a WhatsApp <i class="ph ph-arrow-right"></i></button></div></div>
     </section>`;
   }
 
@@ -679,7 +682,7 @@
     state.builder.idea=view.querySelector("#builder-idea")?.value.trim()||"";const quantity=selectedQuantity(state.builder.quantity,state.builder.customQuantity);const profile=builderProfile();const missing=[];if(!state.builder.type)missing.push("Tipo de proyecto");if(!state.builder.use)missing.push("Objetivo");if(!state.builder.idea)missing.push("Descripción");profile.fields.forEach(field=>{const value=state.builder.details[field.key];if(!field.optional&&!hasValue(value))missing.push(field.label);if(field.type==="date"&&value&&!validFutureDate(value))missing.push(`${field.label} válida`);});if(state.builder.type==="Solución funcional"&&state.builder.details.medidas_funcionales&&!hasMeasurementUnit(state.builder.details.medidas_funcionales))missing.push("Medidas con mm o cm");if(!hasValue(state.builder.environment))missing.push("Condiciones de uso");if(!validQuantity(state.builder.quantity,state.builder.customQuantity))missing.push("Cantidad mayor que cero");if(!state.builder.size)missing.push("Escala");if(!state.builder.deadline)missing.push("Plazo");if(state.builder.deadline==="Fecha definida"&&!validFutureDate(state.builder.deadlineDate))missing.push("Fecha necesaria válida");if(!state.editingUid&&state.items.length>=MAX_ITEMS){notify(`Máximo ${MAX_ITEMS} ideas por consulta. Enviá esta solicitud y empezá otra.`);return;}if(missing.length){const alert=view.querySelector("#builder-alert");if(alert){alert.hidden=false;alert.innerHTML=`<i class="ph ph-warning-circle"></i><span><b>Completá el brief</b>${[...new Set(missing)].join(" · ")}</span>`;alert.scrollIntoView({behavior:"smooth",block:"center"});}notify(`Revisá ${new Set(missing).size} ${new Set(missing).size===1?"dato":"datos"}`);return;}
     const answers={tipo:state.builder.type,objetivo:state.builder.use,...state.builder.details,entorno:displayValue(state.builder.environment),medidas:state.builder.measure.trim()||"A definir",tamano:state.builder.size};const answerLabels={tipo:"Tipo de proyecto",objetivo:"Objetivo",...Object.fromEntries(profile.fields.map(field=>[field.key,field.label])),entorno:"Condiciones de uso",medidas:"Medida o espacio",tamano:"Escala aproximada"};
     const uid=state.editingUid||`${Date.now()}-${Math.random()}`;const item={id:"custom",uid,name:"Proyecto personalizado",group:`${state.builder.type} · ${state.builder.use}`,icon:"ph-sparkle",detail:"Proyecto desarrollado desde cero",image:document.querySelector("#builder-image").src,quantity,size:state.builder.size,colors:"Según el brief",design:"Diseño desde cero",deadline:state.builder.deadline,deadlineDate:state.builder.deadlineDate,file:state.builder.file,files:[...state.builder.files],fileObjects:[...state.builder.fileObjects],referencePreview:state.builder.filePreview,referencePreviews:[...state.builder.filePreviews],idea:state.builder.idea,profileKey:"custom",answers,answerLabels};
-    const index=state.items.findIndex(existing=>existing.uid===state.editingUid);if(index>=0)state.items[index]=item;else state.items.push(item);state.editingUid="";persistRequest();state.route="checkout";render();notify("Tu idea quedó pronta para enviar");
+    const index=state.items.findIndex(existing=>existing.uid===state.editingUid);if(index>=0)state.items[index]=item;else state.items.push(item);persistRequest();resetBuilderDraft();state.route="checkout";render();notify("Tu idea quedó pronta para enviar");
   }
 
   function addBuilderV2(){
@@ -698,7 +701,7 @@
     const answerLabels={tipo:"Tipo de proyecto",idea:"Idea",personalizacion:"Personalización",entorno:"Dónde o cómo se va a usar",medidas:"Tamaño aproximado"};
     const uid=state.editingUid||`${Date.now()}-${Math.random()}`;
     const item={id:"custom",uid,name:"Proyecto personalizado",group:state.builder.type,icon:"ph-sparkle",detail:"Proyecto desarrollado desde cero",image:document.querySelector("#builder-image").src,quantity,size:state.builder.measure||"A definir",colors:displayValue(personalization)||"A definir",design:"Diseño desde cero",deadline:state.builder.deadline,deadlineDate:state.builder.deadlineDate,file:state.builder.file,files:[...state.builder.files],fileObjects:[...state.builder.fileObjects],referencePreview:state.builder.filePreview,referencePreviews:[...state.builder.filePreviews],idea:state.builder.idea,profileKey:"custom",answers,answerLabels};
-    const index=state.items.findIndex(existing=>existing.uid===state.editingUid);if(index>=0)state.items[index]=item;else state.items.push(item);state.editingUid="";persistRequest();state.route="checkout";render();notify("Tu idea quedó pronta para enviar");
+    const index=state.items.findIndex(existing=>existing.uid===state.editingUid);if(index>=0)state.items[index]=item;else state.items.push(item);persistRequest();resetBuilderDraft();state.route="checkout";render();notify("Tu idea quedó pronta para enviar");
   }
 
   function editItem(uid){
@@ -709,24 +712,25 @@
   }
 
   function buildMessage(compact=false){
-    const lines=["Hola, equipo de ATRY LAB 👋","","Quiero solicitar una cotización con esta información:",""];
-    if(compact)lines.push("ℹ️ Este es un resumen abreviado para asegurar compatibilidad con WhatsApp. Coordinamos los detalles completos por este chat.","");
+    const lines=["Hola, equipo de ATRY LAB","","Quiero solicitar una cotización con esta información:",""];
+    if(compact)lines.push("RESUMEN ABREVIADO","Los detalles restantes los coordinamos por este chat.","");
     state.items.forEach((item,index)=>{
-      if(compact){lines.push(`📦 ${index+1}. ${item.name} · ${item.quantity} un. · ${itemAnswerRows(item).slice(0,2).map(([,value])=>trimMessage(value,60)).join(" · ")||item.size}`);lines.push(`📅 ${deadlineText(item.deadline,item.deadlineDate)}`);if(item.file)lines.push("📎 Tengo referencias para adjuntar");lines.push("");return;}
-      lines.push(`📦 ${index+1}. ${item.name}`);
-      lines.push(`• Cantidad: ${item.quantity} ${item.quantity==="1"?"unidad":"unidades"}`);
-      if(item.idea)lines.push(`• Idea: ${trimMessage(item.idea,300)}`);
-      itemAnswerRows(item).forEach(([label,value])=>lines.push(`• ${label.replace(/\s*\(opcional\)/i,"")}: ${trimMessage(value,160)}`));
-      if(!item.answers){lines.push(`• Tamaño: ${item.size}`);lines.push(`• Color / acabado: ${item.colors}`);}
-      lines.push(`📅 Plazo: ${deadlineText(item.deadline,item.deadlineDate)}`);
-      if(item.file)lines.push(`📎 Referencia: ${trimMessage(item.file,240)} — la adjunto en este chat`);
+      const detailRows=itemAnswerRows(item).filter(([label])=>label.toLowerCase()!=="idea");
+      if(compact){lines.push(`PEDIDO ${index+1} - ${item.name}`);lines.push(`Cantidad: ${item.quantity} ${item.quantity==="1"?"unidad":"unidades"}`);lines.push(`Plazo: ${deadlineText(item.deadline,item.deadlineDate)}`);if(item.file)lines.push("Tengo referencias para adjuntar.");lines.push("");return;}
+      lines.push(`PEDIDO ${index+1} - ${item.name}`);
+      lines.push(`- Cantidad: ${item.quantity} ${item.quantity==="1"?"unidad":"unidades"}`);
+      if(item.idea)lines.push(`- Idea: ${trimMessage(item.idea,300)}`);
+      detailRows.forEach(([label,value])=>lines.push(`- ${label.replace(/\s*\(opcional\)/i,"")}: ${trimMessage(value,160)}`));
+      if(!item.answers){lines.push(`- Tamaño: ${item.size}`);lines.push(`- Color / acabado: ${item.colors}`);}
+      lines.push(`- Plazo: ${deadlineText(item.deadline,item.deadlineDate)}`);
+      if(item.file)lines.push(`- Referencia: ${trimMessage(item.file,240)} (la adjunto en este chat)`);
       lines.push("");
     });
-    lines.push("👤 Datos de contacto");
-    if(state.customerName)lines.push(`• Nombre: ${state.customerName}`);
-    if(state.customerContext)lines.push(`• Marca, empresa o evento: ${state.customerContext}`);
-    if(state.customerMessage)lines.push(`• Comentario adicional: ${trimMessage(state.customerMessage,400)}`);
-    lines.push("","✅ ¿Me confirman precio, material recomendado, plazo y forma de entrega o retiro?","","Gracias 🙂");
+    lines.push("DATOS DE CONTACTO");
+    if(state.customerName)lines.push(`- Nombre: ${state.customerName}`);
+    if(state.customerContext)lines.push(`- Marca, empresa o evento: ${state.customerContext}`);
+    if(state.customerMessage)lines.push(`- Comentario adicional: ${trimMessage(state.customerMessage,400)}`);
+    lines.push("","¿Me confirman precio, material recomendado, plazo y forma de entrega o retiro?","","Gracias.");
     return lines.join("\n");
   }
 
@@ -770,7 +774,7 @@
   }
 
   function moveBuilderStep(next,direction=1){
-    state.builderStep=Math.max(0,Math.min(5,next));render({scroll:false,entry:false});
+    state.builderStep=Math.max(0,Math.min(5,next));render({scroll:true,entry:false});
     const card=view.querySelector(".wizard-card");
     if(card&&!matchMedia("(prefers-reduced-motion: reduce)").matches)card.animate([{opacity:.35,transform:`translateX(${direction*18}px)`},{opacity:1,transform:"translateX(0)"}],{duration:360,easing:"cubic-bezier(.22,1,.36,1)"});
   }
@@ -778,6 +782,7 @@
   function bindEvents(){
     view.querySelectorAll("[data-back]").forEach(button=>button.addEventListener("click",()=>{const origin=state.origin||{route:"home",scrollTop:0,windowY:0};state.editingUid="";state.route=origin.route||"home";state.category=origin.category||state.category;state.search=origin.search||"";render();requestAnimationFrame(()=>{view.scrollTop=origin.scrollTop||0;window.scrollTo(0,origin.windowY||0);});}));
     view.querySelectorAll("[data-route]").forEach(button=>button.addEventListener("click",()=>{state.editingUid="";state.route=button.dataset.route;render();}));
+    view.querySelector("[data-new-builder]")?.addEventListener("click",()=>{resetBuilderDraft();state.route="builder";render();});
     view.querySelectorAll("[data-product]").forEach(card=>card.addEventListener("click",event=>{if(event.target.closest("[data-configure]"))return;openProduct(card.dataset.product,card.querySelector("[data-product-image]"));}));
     view.querySelectorAll("[data-configure]").forEach(button=>button.addEventListener("click",event=>{event.stopPropagation();const card=button.closest("[data-product]");openProduct(button.dataset.configure,card?.querySelector("[data-product-image]"));}));
     view.querySelectorAll("[data-category]").forEach(button=>button.addEventListener("click",()=>{state.category=button.dataset.category;state.search="";state.catalogLimit=12;render({scroll:false});}));
