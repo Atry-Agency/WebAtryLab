@@ -57,6 +57,10 @@ function scan(root=document){
     'catalog-event':['event','eventAlt'],
     'catalog-home':['home','homeAlt'],
     'catalog-custom':['ruler','rulerAlt'],
+    'detail-choice':['tag','tagAlt'],
+    'detail-measure':['ruler','rulerAlt'],
+    'detail-time':['clock','clockAlt'],
+    'detail-file':['plus','pencil'],
     outbound:['upRight','arrowRight']
   };
   Object.entries(hoverPairs).forEach(([name,[rest,active]])=>root.querySelectorAll?.(`[data-morph="${name}"]`).forEach(holder=>{

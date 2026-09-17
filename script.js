@@ -6,6 +6,7 @@
   const toast = document.querySelector("#toast");
   const transitionLayer = document.querySelector("#transition-layer");
   let isTransitioning = false;
+  let searchTimer = 0;
   const STORAGE_REQUEST = "atrylab-request-v1";
   const STORAGE_FAVORITES = "atrylab-favorites-v1";
 
@@ -255,7 +256,7 @@
     route:"home", current:products[0], category:"Todos", search:"", catalogLimit:12, items:Array.isArray(storedItems)?storedItems:[],
     quantity:"",customQuantity:"",size:"",colors:new Set(),design:"Necesito ayuda",deadline:"",deadlineDate:"",file:"",files:[],fileObjects:[],
     answers:defaultAnswers(getProductProfile(products[0])),filePreview:"",filePreviews:[],customerName:"", customerContext:"", customerMessage:"",
-    favorites:new Set(readStorage(STORAGE_FAVORITES,[])),editingUid:"",origin:null,messageWasCompacted:false,builderStep:0,
+    favorites:new Set(readStorage(STORAGE_FAVORITES,[])),editingUid:"",origin:null,messageWasCompacted:false,builderStep:0,detailStep:0,
     builder:emptyBuilder()
   };
 
@@ -331,6 +332,18 @@
     const originRect=source?.getBoundingClientRect();
     const visible=originRect&&originRect.width&&originRect.bottom>0&&originRect.top<innerHeight&&originRect.right>0&&originRect.left<innerWidth;
     if(isTransitioning)return;
+    if(variant==="detail"){
+      isTransitioning=true;document.body.classList.add("is-transitioning");
+      update();
+      const destination=document.querySelector(destinationSelector);
+      const info=document.querySelector(".detail-info");
+      if(!reduced){
+        info?.animate([{opacity:0,transform:"translateY(7px)"},{opacity:1,transform:"translateY(0)"}],{duration:360,easing:"cubic-bezier(.22,1,.36,1)",fill:"both"});
+        destination?.closest(".detail-visual")?.animate([{opacity:0,transform:"scale(.988)"},{opacity:1,transform:"scale(1)"}],{duration:420,easing:"cubic-bezier(.22,1,.36,1)",fill:"both"});
+      }
+      await new Promise(resolve=>setTimeout(resolve,reduced?0:420));
+      document.body.classList.remove("is-transitioning");isTransitioning=false;return;
+    }
     if(reduced||!visible){update();enterSequential(view);return;}
     isTransitioning=true;document.body.classList.add("is-transitioning");
     const wash=document.createElement("div");wash.className="route-wash";
@@ -412,9 +425,9 @@
 
     <section class="menu-zone">
       <div class="category-strip" data-entry>${categories.map(category=>`<button class="category ${state.category===category.name?"active":""}" data-category="${category.name}"><span><i class="ph ${category.icon}"></i></span>${category.name}</button>`).join("")}</div>
-      <div class="catalog-heading" data-entry><div><small>${catalog?"CATÁLOGO COMPLETO":"IDEAS PARA EMPEZAR"}</small><h2>${state.search?`Resultados para “${state.search}”`:state.category==="Todos"?"¿Qué podemos fabricar?":state.category}</h2></div><span>${list.length} opciones</span></div>
+      <div class="catalog-heading" data-entry><div><small>${catalog?"CATÁLOGO COMPLETO":"IDEAS PARA EMPEZAR"}</small><h2>${state.search?`Resultados para “${state.search}”`:state.category==="Todos"?"¿Qué podemos fabricar?":state.category}</h2></div><span>${state.search?`${list.length} resultados`:"Selección destacada"}</span></div>
       <div class="product-grid">${list.length?list.map(productCard).join(""):`<div class="empty-search" data-entry><i class="ph ph-magnifying-glass"></i><h3>No encontramos esa palabra</h3><p>Igual podemos diseñarlo desde cero.</p><button data-route="builder">Contar mi idea</button></div>`}</div>
-      ${!catalog&&!state.search?`<button class="see-all" data-route="catalog" data-entry>Ver las ${products.length} posibilidades <i class="ph ph-arrow-right"></i></button>`:""}
+      ${!catalog&&!state.search?`<button class="see-all" data-route="catalog" data-entry>Explorar todo el catálogo <i class="ph ph-arrow-right"></i></button>`:""}
     </section>
 
     ${!catalog&&!state.search?`<section class="home-more">
@@ -470,6 +483,76 @@
     return `<label class="config-field config-text" data-entry><small>${field.label}${optional}</small>${tag}</label>`;
   }
 
+  function detailFieldIcon(field){
+    const key=field?.key||"";
+    if(/fecha|plazo/i.test(key))return "ph-calendar-blank";
+    if(/medida|ancho|altura|escala|tolerancia/i.test(key))return "ph-ruler";
+    if(/color|acabado|estilo/i.test(key))return "ph-palette";
+    if(/ubicacion|ambiente|entorno/i.test(key))return "ph-map-pin";
+    if(/logo|identidad|personalizacion|contenido|texto|inscripcion/i.test(key))return "ph-text-aa";
+    if(/enlace|destino/i.test(key))return "ph-link";
+    if(field?.type==="multi")return "ph-check-square-offset";
+    if(field?.type==="textarea")return "ph-note-pencil";
+    return "ph-cursor-click";
+  }
+
+  function detailFieldMorph(field){
+    const key=field?.key||"";
+    if(/medida|ancho|altura|escala|tolerancia/i.test(key))return "detail-measure";
+    if(/fecha|plazo/i.test(key))return "detail-time";
+    return "detail-choice";
+  }
+
+  function detailFieldHint(field){
+    if(field.optional)return "Podés dejarlo para definirlo juntos.";
+    if(field.type==="multi")return "Podés marcar más de una opción.";
+    if(field.type==="date")return "Elegí la fecha prevista para poder revisar el plazo.";
+    if(field.type==="text"||field.type==="textarea")return "Escribí lo que sepas. Si falta algo, lo terminamos de definir juntos.";
+    return "Elegí la opción que mejor se acerque. Después afinamos los detalles.";
+  }
+
+  function detailStepCount(profile){return profile.fields.length+3;}
+  function detailStepValue(profile,step=state.detailStep){
+    if(step<profile.fields.length)return state.answers[profile.fields[step].key];
+    if(step===profile.fields.length)return selectedQuantity(state.quantity,state.customQuantity);
+    if(step===profile.fields.length+1)return state.deadline;
+    return "";
+  }
+
+  function detailStepIssue(profile,step=state.detailStep){
+    if(step<profile.fields.length){
+      const field=profile.fields[step],value=state.answers[field.key];
+      if(!field.optional&&!hasValue(value))return `Completá “${field.label}” para continuar`;
+      if(profile.key==="qr"&&field.key==="enlace"&&value&&!validWebUrl(value))return "Ingresá un enlace válido que empiece con https://";
+      if(field.type==="date"&&value&&!validFutureDate(value))return "Elegí una fecha válida desde hoy";
+      if(["medida","medidas","ancho","altura"].includes(field.key)&&value&&!hasMeasurementUnit(value))return "Agregá la unidad de medida, por ejemplo mm o cm";
+      return "";
+    }
+    if(step===profile.fields.length&&!validProductQuantity(state.quantity,state.customQuantity,state.current))return `La cantidad mínima para este producto es ${minimumQuantity(state.current)}`;
+    if(step===profile.fields.length+1){
+      if(!state.deadline)return "Elegí un plazo para continuar";
+      if(state.deadline==="Fecha definida"&&!validFutureDate(state.deadlineDate))return "Elegí una fecha válida desde hoy";
+    }
+    return "";
+  }
+
+  function detailWizardField(profile){
+    const step=state.detailStep;
+    if(step<profile.fields.length){
+      const field=profile.fields[step];
+      return `<div class="detail-question-head"><span class="detail-question-icon" data-morph="${detailFieldMorph(field)}"><i class="ph ${detailFieldIcon(field)}" aria-hidden="true"></i></span><div><small>UNA DECISIÓN A LA VEZ</small><h3>${field.label}</h3><p>${detailFieldHint(field)}</p></div></div>${configurationField({...field,label:""})}`;
+    }
+    if(step===profile.fields.length){
+      const minimum=minimumQuantity(state.current);const quantityOptions=["1","10","25","50","100","250+","Otra"].filter(value=>value==="Otra"||parseInt(value,10)>=minimum);
+      return `<div class="detail-question-head"><span class="detail-question-icon" data-morph="detail-choice"><i class="ph ph-stack" aria-hidden="true"></i></span><div><small>CANTIDAD</small><h3>¿Cuántas unidades necesitás?</h3><p>Si todavía no lo sabés, elegí una aproximación.</p></div></div><div class="config-field detail-single-field" role="group" aria-labelledby="quantity-label"><small id="quantity-label">Pedido mínimo: ${minimum} ${minimum===1?"unidad":"unidades"}</small><div class="config-options quantity-options" data-option="quantity">${quantityOptions.map(value=>`<button class="${state.quantity===value?"active":""}" aria-pressed="${state.quantity===value}" data-value="${value}">${value}</button>`).join("")}</div>${state.quantity==="Otra"?`<label class="conditional-input"><span>Cantidad exacta · mínimo ${minimum}</span><input id="custom-quantity" inputmode="numeric" aria-required="true" min="${minimum}" maxlength="5" value="${escapeText(state.customQuantity)}" placeholder="Ej.: ${minimum}"></label>`:""}</div>`;
+    }
+    if(step===profile.fields.length+1){
+      return `<div class="detail-question-head"><span class="detail-question-icon" data-morph="detail-time"><i class="ph ph-clock" aria-hidden="true"></i></span><div><small>PLAZO</small><h3>¿Para cuándo lo necesitás?</h3><p>La fecha nos ayuda a recomendarte el mejor camino.</p></div></div><div class="config-field detail-single-field" role="group" aria-labelledby="deadline-label"><small id="deadline-label">Elegí una opción</small><div class="config-options deadline-options" data-option="deadline">${["Sin apuro","Fecha definida","Lo antes posible"].map(value=>`<button class="${state.deadline===value?"active":""}" aria-pressed="${state.deadline===value}" data-value="${value}">${value}</button>`).join("")}</div>${state.deadline==="Fecha definida"?`<label class="conditional-input"><span>Fecha necesaria</span><input id="deadline-date" type="date" min="${todayValue()}" aria-required="true" value="${escapeText(state.deadlineDate)}"></label>`:""}</div>`;
+    }
+    const answered=profile.fields.filter(field=>hasValue(state.answers[field.key])).length;
+    return `<div class="detail-question-head detail-ready-head"><span class="detail-question-icon detail-file-icon" data-morph="detail-file"><i class="ph ph-paperclip" aria-hidden="true"></i></span><div><small>ÚLTIMO PASO</small><h3>Sumá una referencia si tenés</h3><p>No es obligatoria. Una foto, logo o boceto puede ayudarnos a entender mejor la idea.</p></div></div><div class="detail-ready-summary"><span><i class="ph ph-check-circle"></i><b>${answered}</b> decisiones guardadas</span><span><i class="ph ph-stack"></i><b>${selectedQuantity(state.quantity,state.customQuantity)}</b> unidades</span><span><i class="ph ph-calendar-blank"></i>${escapeText(deadlineText(state.deadline,state.deadlineDate))}</span></div>${referencePreview()}<div class="detail-actions detail-final-actions"><label class="reference-upload"><input id="reference" type="file" multiple accept="${profile.fileAccept||".png,.jpg,.jpeg,.svg,.pdf"}"><i class="ph ph-paperclip" aria-hidden="true"></i><span><b>${profile.fileLabel}</b><small>${state.files.length?`${state.files.length} archivo${state.files.length===1?"":"s"} seleccionado${state.files.length===1?"":"s"}`:`${profile.fileHelp} · máx. ${MAX_FILES}`}</small></span></label><button class="primary" id="add-request"><i class="ph ph-bag" aria-hidden="true"></i> ${state.editingUid?"Actualizar solicitud":"Sumar a mi solicitud"}</button></div><p class="upload-disclosure"><i class="ph ph-info"></i> En celulares compatibles, las referencias se preparan para compartirlas junto con el resumen por WhatsApp.</p>`;
+  }
+
   function builderDynamicField(field){
     const value=state.builder.details[field.key]||"";const labelId=`builder-field-${field.key}`;const marker=field.optional?` <em>(opcional)</em>`:` <em class="required">*</em>`;
     if(field.type==="choice")return `<div class="config-field" role="group" aria-labelledby="${labelId}"><small id="${labelId}">${field.label}${marker}</small><div class="config-options" data-builder-detail="${field.key}">${field.options.map(option=>`<button class="${value===option?"active":""}" aria-pressed="${value===option}" data-value="${option}">${option}</button>`).join("")}</div></div>`;
@@ -493,17 +576,22 @@
     const product=state.current;
     const profile=getProductProfile(product);
     const minimum=minimumQuantity(product);
-    const quantityOptions=["1","10","25","50","100","250+","Otra"].filter(value=>value==="Otra"||parseInt(value,10)>=minimum);
+    const totalSteps=detailStepCount(profile);const progress=Math.round((state.detailStep+1)/totalSteps*100);
     return `<section class="detail">
       <div class="detail-info">
         <div class="detail-top" data-entry><button class="round" data-back aria-label="Volver"><i class="ph ph-arrow-left" aria-hidden="true"></i></button><div><button class="round favorite-button ${state.favorites.has(product.id)?"active":""}" id="save-product" aria-label="${state.favorites.has(product.id)?"Quitar de guardados":"Guardar para más tarde"}" aria-pressed="${state.favorites.has(product.id)}"><i class="ph ph-heart" aria-hidden="true"></i></button><button class="round" data-route="request" aria-label="Solicitud"><i class="ph ph-bag" aria-hidden="true"></i></button></div></div>
         <span class="detail-group" data-entry>${product.group}</span><h1 data-entry>${product.name}</h1><p class="detail-description" data-entry>${product.detail}</p>
         <div class="detail-metrics" data-entry><div><small>Pedido mínimo</small><strong>${minimum} ${minimum===1?"unidad":"unidades"}</strong></div><div><small>Producción</small><strong>Local</strong></div></div>
         <div class="detail-assurance" data-entry><span><i class="ph ph-check-circle" aria-hidden="true"></i> Material según el uso</span><span><i class="ph ph-check-circle" aria-hidden="true"></i> Precio y plazo antes de fabricar</span><span><i class="ph ph-check-circle" aria-hidden="true"></i> No necesitás archivo 3D</span></div>
-
-        <section class="product-config"><div class="config-intro" data-entry><span>CONFIGURACIÓN PARA ${product.name.toUpperCase()}</span><h2>${profile.title}</h2><p>${profile.description}</p><small class="required-note"><b>*</b> Datos necesarios para cotizar correctamente.</small></div><div class="form-alert" id="form-alert" hidden></div>${profile.fields.map(configurationField).join("")}</section>
-        <div class="config-footer"><div class="config-field" data-entry role="group" aria-labelledby="quantity-label"><small id="quantity-label">Cantidad <em class="required">*</em></small><div class="config-options quantity-options" data-option="quantity">${quantityOptions.map(value=>`<button class="${state.quantity===value?"active":""}" aria-pressed="${state.quantity===value}" data-value="${value}">${value}</button>`).join("")}</div>${state.quantity==="Otra"?`<label class="conditional-input"><span>Cantidad exacta · mínimo ${minimum}</span><input id="custom-quantity" inputmode="numeric" aria-required="true" min="${minimum}" maxlength="5" value="${escapeText(state.customQuantity)}" placeholder="Ej.: ${minimum}"></label>`:""}</div><div class="config-field" data-entry role="group" aria-labelledby="deadline-label"><small id="deadline-label">¿Para cuándo? <em class="required">*</em></small><div class="config-options" data-option="deadline">${["Sin apuro","Fecha definida","Lo antes posible"].map(value=>`<button class="${state.deadline===value?"active":""}" aria-pressed="${state.deadline===value}" data-value="${value}">${value}</button>`).join("")}</div>${state.deadline==="Fecha definida"?`<label class="conditional-input"><span>Fecha necesaria</span><input id="deadline-date" type="date" min="${todayValue()}" aria-required="true" value="${escapeText(state.deadlineDate)}"></label>`:""}</div></div>
-        ${referencePreview()}<div class="detail-actions" data-entry><label class="reference-upload"><input id="reference" type="file" multiple accept="${profile.fileAccept||".png,.jpg,.jpeg,.svg,.pdf"}"><i class="ph ph-paperclip" aria-hidden="true"></i><span><b>${profile.fileLabel}</b><small>${state.files.length?`${state.files.length} archivo${state.files.length===1?"":"s"} seleccionado${state.files.length===1?"":"s"}`:`${profile.fileHelp} · máx. ${MAX_FILES}`}</small></span></label><button class="primary" id="add-request"><i class="ph ph-bag" aria-hidden="true"></i> ${state.editingUid?"Actualizar solicitud":"Sumar a mi solicitud"}</button></div><p class="upload-disclosure" data-entry><i class="ph ph-info"></i> En celulares compatibles, las referencias se preparan para compartirlas junto con el resumen por WhatsApp.</p>
+        <section class="product-config product-wizard" data-entry>
+          <div class="product-wizard-top"><div><span>CONFIGURÁ TU PIEZA</span><strong>Paso ${String(state.detailStep+1).padStart(2,"0")} de ${String(totalSteps).padStart(2,"0")}</strong></div><div class="product-wizard-progress" aria-label="${progress}% completo"><i style="width:${progress}%"></i></div></div>
+          <div class="form-alert" id="form-alert" hidden></div>
+          <div class="product-wizard-card">${detailWizardField(profile)}</div>
+          <div class="product-wizard-nav">
+            <button class="detail-nav-back" data-detail-prev ${state.detailStep===0?"disabled":""}><i class="ph ph-arrow-left"></i> Atrás</button>
+            ${state.detailStep<totalSteps-1?`<button class="detail-nav-next" data-detail-next>Continuar <i class="ph ph-arrow-right"></i></button>`:`<span class="detail-ready-note"><i class="ph ph-check"></i> Listo para sumar</span>`}
+          </div>
+        </section>
       </div>
       <div class="detail-visual" data-entry><div class="detail-halo"></div><img id="product-detail-image" src="${imageFor(product)}" alt="${product.name}"><span class="detail-visual-label"><i class="ph ${product.icon}"></i>${product.name}</span></div>
     </section>`;
@@ -651,7 +739,7 @@
   async function openProduct(id,image){
     const product=products.find(item=>item.id===id); if(!product)return;
     state.origin={route:state.route,category:state.category,search:state.search,scrollTop:view.scrollTop,windowY:window.scrollY};
-    await travelProduct({source:image,destinationSelector:"#product-detail-image",src:imageFor(product),update:()=>{state.current=product;state.editingUid="";state.answers=defaultAnswers(getProductProfile(product));state.quantity="";state.customQuantity="";state.deadline="";state.deadlineDate="";state.file="";state.files=[];state.fileObjects=[];state.filePreview="";state.filePreviews=[];state.route="detail";render({entry:false});}});
+    await travelProduct({source:image,destinationSelector:"#product-detail-image",src:imageFor(product),update:()=>{state.current=product;state.editingUid="";state.detailStep=0;state.answers=defaultAnswers(getProductProfile(product));state.quantity="";state.customQuantity="";state.deadline="";state.deadlineDate="";state.file="";state.files=[];state.fileObjects=[];state.filePreview="";state.filePreviews=[];state.route="detail";render({entry:false});}});
   }
 
   async function addCurrent(){
@@ -708,7 +796,7 @@
     const item=state.items.find(entry=>entry.uid===uid);if(!item)return;state.editingUid=uid;
     state.origin={route:"request",category:state.category,search:state.search,scrollTop:0,windowY:0};
     if(item.id==="custom"){const standard=["1","10","25","50","100","250+"];const type=item.answers?.tipo||item.group.split(" · ")[0]||"";const environments=Array.isArray(item.answers?.entorno)?item.answers.entorno:String(item.answers?.entorno||"").split(" · ").filter(Boolean);const personalization=Array.isArray(item.answers?.personalizacion)?item.answers.personalizacion:String(item.answers?.personalizacion||"").split(" · ").filter(value=>value&&value!=="A definir");state.builder={...state.builder,type,use:type,details:{personalizacion:personalization},environment:environments,measure:item.answers?.medidas==="A definir"?"":item.answers?.medidas||"",quantity:standard.includes(item.quantity)?item.quantity:"Otra",customQuantity:standard.includes(item.quantity)?"":item.quantity,size:"",deadline:item.deadline||"",deadlineDate:item.deadlineDate||"",file:item.file||"",files:item.files||(item.file?[item.file]:[]),fileObjects:item.fileObjects||[],filePreview:item.referencePreview||"",filePreviews:item.referencePreviews||[],idea:item.idea||item.answers?.idea||""};state.builderStep=0;state.route="builder";render();return;}
-    const product=products.find(entry=>entry.id===item.id);if(!product)return;const standard=["1","10","25","50","100","250+"];state.current=product;state.quantity=standard.includes(item.quantity)?item.quantity:"Otra";state.customQuantity=standard.includes(item.quantity)?"":item.quantity;state.answers=item.answers?{...item.answers}:defaultAnswers(getProductProfile(product));state.deadline=item.deadline||"";state.deadlineDate=item.deadlineDate||"";state.file=item.file||"";state.files=item.files||(item.file?[item.file]:[]);state.fileObjects=item.fileObjects||[];state.filePreview=item.referencePreview||"";state.filePreviews=item.referencePreviews||[];state.route="detail";render();
+    const product=products.find(entry=>entry.id===item.id);if(!product)return;const standard=["1","10","25","50","100","250+"];state.current=product;state.quantity=standard.includes(item.quantity)?item.quantity:"Otra";state.customQuantity=standard.includes(item.quantity)?"":item.quantity;state.answers=item.answers?{...item.answers}:defaultAnswers(getProductProfile(product));state.deadline=item.deadline||"";state.deadlineDate=item.deadlineDate||"";state.file=item.file||"";state.files=item.files||(item.file?[item.file]:[]);state.fileObjects=item.fileObjects||[];state.filePreview=item.referencePreview||"";state.filePreviews=item.referencePreviews||[];state.detailStep=detailStepCount(getProductProfile(product))-1;state.route="detail";render();
   }
 
   function buildMessage(compact=false){
@@ -779,8 +867,15 @@
     if(card&&!matchMedia("(prefers-reduced-motion: reduce)").matches)card.animate([{opacity:.35,transform:`translateX(${direction*18}px)`},{opacity:1,transform:"translateX(0)"}],{duration:360,easing:"cubic-bezier(.22,1,.36,1)"});
   }
 
+  function moveDetailStep(next,direction=1){
+    const profile=getProductProfile(state.current);state.detailStep=Math.max(0,Math.min(detailStepCount(profile)-1,next));render({scroll:false,entry:false});
+    const card=view.querySelector(".product-wizard-card");
+    if(card&&!matchMedia("(prefers-reduced-motion: reduce)").matches)card.animate([{opacity:.18,transform:`translateX(${direction*20}px) scale(.99)`},{opacity:1,transform:"translateX(0) scale(1)"}],{duration:420,easing:"cubic-bezier(.16,1,.3,1)"});
+    view.querySelector(".product-wizard")?.scrollIntoView({behavior:"smooth",block:"center"});
+  }
+
   function bindEvents(){
-    view.querySelectorAll("[data-back]").forEach(button=>button.addEventListener("click",()=>{const origin=state.origin||{route:"home",scrollTop:0,windowY:0};state.editingUid="";state.route=origin.route||"home";state.category=origin.category||state.category;state.search=origin.search||"";render();requestAnimationFrame(()=>{view.scrollTop=origin.scrollTop||0;window.scrollTo(0,origin.windowY||0);});}));
+    view.querySelectorAll("[data-back]").forEach(button=>button.addEventListener("click",()=>{const origin=state.origin||{route:"home",scrollTop:0,windowY:0};const root=document.documentElement;const previousBehavior=root.style.scrollBehavior;root.style.scrollBehavior="auto";state.editingUid="";state.route=origin.route||"home";state.category=origin.category||state.category;state.search=origin.search||"";render({scroll:false,entry:false});view.scrollTop=origin.scrollTop||0;window.scrollTo({top:origin.windowY||0,left:0,behavior:"auto"});requestAnimationFrame(()=>{root.style.scrollBehavior=previousBehavior;});}));
     view.querySelectorAll("[data-route]").forEach(button=>button.addEventListener("click",()=>{state.editingUid="";state.route=button.dataset.route;render();}));
     view.querySelector("[data-new-builder]")?.addEventListener("click",()=>{resetBuilderDraft();state.route="builder";render();});
     view.querySelectorAll("[data-product]").forEach(card=>card.addEventListener("click",event=>{if(event.target.closest("[data-configure]"))return;openProduct(card.dataset.product,card.querySelector("[data-product-image]"));}));
@@ -789,9 +884,55 @@
     view.querySelectorAll("[data-catalog-intent]").forEach(button=>button.addEventListener("click",()=>{state.category=button.dataset.catalogIntent;state.search="";state.catalogLimit=12;render({scroll:false});setTimeout(()=>view.querySelector("#catalog-results")?.scrollIntoView({behavior:"smooth",block:"start"}),40);}));
     view.querySelector("[data-catalog-more]")?.addEventListener("click",()=>{state.catalogLimit+=12;render({scroll:false,entry:false});});
     view.querySelector("[data-catalog-reset]")?.addEventListener("click",()=>{state.search="";state.category="Todos";state.catalogLimit=12;render({scroll:false});});
-    const search=view.querySelector("#search");if(search)search.addEventListener("input",()=>{state.search=search.value;if(state.search){state.route="catalog";state.category="Todos";}state.catalogLimit=12;render({scroll:false,entry:false});setTimeout(()=>{const next=view.querySelector("#search");next?.focus();next?.setSelectionRange(next.value.length,next.value.length);},0);});
-    view.querySelectorAll("[data-option]").forEach(group=>group.addEventListener("click",event=>{const button=event.target.closest("button");if(!button)return;state[group.dataset.option]=button.dataset.value;if(group.dataset.option==="quantity"&&button.dataset.value!=="Otra")state.customQuantity="";if(group.dataset.option==="deadline"&&button.dataset.value!=="Fecha definida")state.deadlineDate="";render({scroll:false,entry:false});bounce(view.querySelector(`[data-option='${group.dataset.option}'] button[data-value='${button.dataset.value}']`));}));
-    view.querySelectorAll("[data-answer]").forEach(group=>group.addEventListener("click",event=>{const button=event.target.closest("button");if(!button)return;state.answers[group.dataset.answer]=button.dataset.value;group.querySelectorAll("button").forEach(item=>{const selected=item===button;item.classList.toggle("active",selected);item.setAttribute("aria-pressed",String(selected));});const field=group.closest(".config-field");field?.classList.remove("invalid");field?.removeAttribute("aria-invalid");bounce(button);}));
+    const search=view.querySelector("#search");
+    if(search){
+      const isHeroSearch=state.route==="home";
+      const commitSearch=()=>{
+        clearTimeout(searchTimer);
+        const value=search.value;
+        const searchViewportTop=search.closest(".catalog-search-wrap")?.getBoundingClientRect().top;
+        state.search=value;
+        if(value){state.route="catalog";state.category="Todos";}
+        state.catalogLimit=12;
+        render({scroll:false,entry:false});
+        requestAnimationFrame(()=>{
+          const next=view.querySelector("#search");
+          if(!isHeroSearch&&Number.isFinite(searchViewportTop)){
+            const nextWrap=next?.closest(".catalog-search-wrap");
+            if(nextWrap){
+              const delta=nextWrap.getBoundingClientRect().top-searchViewportTop;
+              window.scrollBy({top:delta,left:0,behavior:"auto"});
+            }
+          }
+          next?.focus({preventScroll:true});
+          next?.setSelectionRange(next.value.length,next.value.length);
+          if(isHeroSearch){
+            const target=view.querySelector(".catalog-search-wrap");
+            if(target){
+              const header=document.querySelector(".desktop-header");
+              const headerVisible=header&&getComputedStyle(header).display!=="none";
+              const offset=(headerVisible?header.offsetHeight:0)+18;
+              const top=Math.max(0,window.scrollY+target.getBoundingClientRect().top-offset);
+              window.scrollTo({top,behavior:matchMedia("(prefers-reduced-motion: reduce)").matches?"auto":"smooth"});
+            }
+          }
+        });
+      };
+      search.addEventListener("input",()=>{
+        state.search=search.value;
+        if(isHeroSearch)return;
+        clearTimeout(searchTimer);
+        searchTimer=setTimeout(commitSearch,180);
+      });
+      search.addEventListener("keydown",event=>{
+        if(event.key==="Enter"){
+          event.preventDefault();
+          commitSearch();
+        }
+      });
+    }
+    view.querySelectorAll("[data-option]").forEach(group=>group.addEventListener("click",event=>{const button=event.target.closest("button");if(!button)return;state[group.dataset.option]=button.dataset.value;if(group.dataset.option==="quantity"&&button.dataset.value!=="Otra")state.customQuantity="";if(group.dataset.option==="deadline"&&button.dataset.value!=="Fecha definida")state.deadlineDate="";const shouldAdvance=state.route==="detail"&&!(["Otra","Fecha definida"].includes(button.dataset.value));render({scroll:false,entry:false});bounce(view.querySelector(`[data-option='${group.dataset.option}'] button[data-value='${button.dataset.value}']`));if(shouldAdvance)setTimeout(()=>moveDetailStep(state.detailStep+1,1),260);}));
+    view.querySelectorAll("[data-answer]").forEach(group=>group.addEventListener("click",event=>{const button=event.target.closest("button");if(!button)return;state.answers[group.dataset.answer]=button.dataset.value;group.querySelectorAll("button").forEach(item=>{const selected=item===button;item.classList.toggle("active",selected);item.setAttribute("aria-pressed",String(selected));});const field=group.closest(".config-field");field?.classList.remove("invalid");field?.removeAttribute("aria-invalid");bounce(button);if(state.route==="detail")setTimeout(()=>moveDetailStep(state.detailStep+1,1),260);}));
     view.querySelectorAll("[data-answer-multi]").forEach(group=>group.addEventListener("click",event=>{const button=event.target.closest("button");if(!button)return;const key=group.dataset.answerMulti;const current=Array.isArray(state.answers[key])?[...state.answers[key]]:[];const index=current.indexOf(button.dataset.value);if(index>=0)current.splice(index,1);else current.push(button.dataset.value);state.answers[key]=current;group.querySelectorAll("button").forEach(item=>{const selected=current.includes(item.dataset.value);item.classList.toggle("active",selected);item.setAttribute("aria-pressed",String(selected));});const field=group.closest(".config-field");if(current.length){field?.classList.remove("invalid");field?.removeAttribute("aria-invalid");}bounce(button);}));
     view.querySelectorAll("[data-answer-input]").forEach(input=>input.addEventListener("input",()=>{state.answers[input.dataset.answerInput]=input.value;if(input.value.trim()){const field=input.closest(".config-field");field?.classList.remove("invalid");field?.removeAttribute("aria-invalid");}}));
     view.querySelectorAll("[data-color]").forEach(button=>button.addEventListener("click",()=>{const color=button.dataset.color;if(state.colors.has(color))state.colors.delete(color);else{if(state.colors.size>=2)state.colors.delete([...state.colors][0]);state.colors.add(color);}view.querySelectorAll("[data-color]").forEach(item=>item.classList.toggle("active",state.colors.has(item.dataset.color)));bounce(button);}));
@@ -800,6 +941,8 @@
     const reference=view.querySelector("#reference");if(reference)reference.addEventListener("change",()=>{const files=[...reference.files];const maxMb=getProductProfile(state.current).fileMaxMB||10;if(files.length>MAX_FILES){reference.value="";notify(`Podés adjuntar hasta ${MAX_FILES} referencias`);return;}if(files.some(file=>file.size>maxMb*1024*1024)){reference.value="";notify(`Cada archivo debe pesar menos de ${maxMb} MB`);return;}state.filePreviews.filter(src=>src.startsWith("blob:")).forEach(src=>URL.revokeObjectURL(src));state.files=files.map(file=>file.name);state.fileObjects=files;state.file=state.files.join(", ");state.filePreviews=files.filter(file=>file.type.startsWith("image/")).map(file=>URL.createObjectURL(file));state.filePreview=state.filePreviews[0]||"";render({scroll:false,entry:false});notify(files.length?`${files.length} ${files.length===1?"referencia cargada":"referencias cargadas"}`:"Referencias quitadas");});
     view.querySelector("[data-clear-references]")?.addEventListener("click",()=>{state.filePreviews.filter(src=>src.startsWith("blob:")).forEach(src=>URL.revokeObjectURL(src));state.file="";state.files=[];state.fileObjects=[];state.filePreview="";state.filePreviews=[];render({scroll:false,entry:false});notify("Referencias quitadas");});
     view.querySelector("#add-request")?.addEventListener("click",addCurrent);
+    view.querySelector("[data-detail-next]")?.addEventListener("click",()=>{const profile=getProductProfile(state.current);const issue=detailStepIssue(profile);if(issue){notify(issue);const card=view.querySelector(".product-wizard-card");if(card&&!matchMedia("(prefers-reduced-motion: reduce)").matches)card.animate([{transform:"translateX(0)"},{transform:"translateX(-5px)"},{transform:"translateX(5px)"},{transform:"translateX(0)"}],{duration:260});card?.querySelector("input,textarea,button")?.focus();return;}moveDetailStep(state.detailStep+1,1);});
+    view.querySelector("[data-detail-prev]")?.addEventListener("click",()=>moveDetailStep(state.detailStep-1,-1));
     view.querySelector("#save-product")?.addEventListener("click",()=>{const id=state.current.id;if(state.favorites.has(id)){state.favorites.delete(id);notify("Quitado de guardados");}else{state.favorites.add(id);notify("Guardado para más tarde");}persistFavorites();render({scroll:false,entry:false});});
     view.querySelectorAll("[data-edit]").forEach(button=>button.addEventListener("click",()=>editItem(button.dataset.edit)));
     view.querySelectorAll("[data-remove]").forEach(button=>button.addEventListener("click",()=>{state.items=state.items.filter(item=>item.uid!==button.dataset.remove);persistRequest();render({scroll:false});notify("Opción quitada");}));
