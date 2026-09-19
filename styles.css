@@ -757,3 +757,84 @@ body .request-summary>.request-summary-copy{margin:0;display:block;color:inherit
 /* Mantener la superficie del configurador por encima de las reglas históricas. */
 .product-config.product-wizard{margin-top:27px;padding:18px;border:1px solid #d7e7ea;border-radius:24px}
 @media(max-width:767px){.product-config.product-wizard{width:100%;margin-top:20px;padding:15px;border:1px solid #d7e7ea;border-radius:21px}}
+
+/* Legibilidad tipográfica: preservar jerarquía sin microtexto funcional. */
+.nav-item{font-size:13px}
+.agency-header-link{font-size:11px}
+.request-bubble{font-size:10px}
+.location-line,body .location-line small{font-size:11px}.location-line strong{font-size:12px}
+.search-box input,.catalog-search input{font-size:14px}
+.builder-access small{font-size:12px;line-height:1.45}
+.category,.catalog-filter-strip button{font-size:11px}
+.catalog-heading small,.section-label,.trust-section>div:first-child small,.reviews-head small,.catalog-landing>div>small,.catalog-start-copy>small,.catalog-section-title>small,.catalog-results-head small,.catalog-tail small{font-size:10px}
+.catalog-heading>span,.catalog-results-head>span,.catalog-search-wrap>span{font-size:11px}
+.product-badge{font-size:10px}
+.product-card h3{font-size:17px}
+.product-open>p{font-size:13px;line-height:1.55}
+.product-card-footer>span{font-size:11px}
+.see-all,.catalog-more,.catalog-empty button,.catalog-tail button{font-size:13px}
+.empty-search p,.catalog-empty p,.catalog-tail p{font-size:13px;line-height:1.55}
+.service-cards p,.trust-grid p,.volume-card p{font-size:13px;line-height:1.55}
+.detail-group{font-size:10px}.detail-description{font-size:14px}
+.detail-metrics small,.detail-metrics strong{font-size:11px}
+.option-block>small,.option-inline>div>small,.config-field>small,.builder-controls section>small,.contact-panel label{font-size:12px}
+.segmented button,.config-options button,.reference-upload,.primary,.secondary-button,.whatsapp-button,body .business-hero .light-button{font-size:13px}
+.config-intro p,.detail-assurance,.upload-disclosure,.required-note,.form-alert{font-size:12px;line-height:1.5}
+.config-text input,.config-text textarea,.contact-panel input,.contact-panel textarea{font-size:14px}
+.detail-visual-label{font-size:11px}
+.empty-state p,.request-item p,.request-item div>span,.request-summary>div,.contact-panel>p,.checkout-summary>p,.checkout-summary>p small{font-size:12px;line-height:1.5}
+.request-item small,.request-item-content>small,.request-config-grid>span,.request-summary .request-limit,.request-assurances{font-size:11px!important}
+.request-item-actions button,.item-configuration summary{font-size:12px}
+.builder-head small,.process-head>small,.business-hero small,.business-work>small,.business-examples>div:first-child small,.faq>div:first-child small,.business-proof small{font-size:10px}
+.builder-option,.builder-upload b,.builder-idea span,.builder-measure,.builder-dynamic>p{font-size:12px;line-height:1.5}
+.builder-upload small,.builder-badge,.builder-live small,.builder-live>p,.builder-live strong,.builder-specs span{font-size:11px}
+.process-head p,.process-list p,.faq details p,.business-hero p,.business-proof p,.business-work p,.business-examples-track p,.process-final p{font-size:14px;line-height:1.6}
+.faq summary{font-size:14px}
+.site-footer p,.site-footer nav a,.site-footer nav button,.contact-pending,.footer-copy{font-size:12px;line-height:1.5}
+.footer-social>small,.atry-network small,.agency-business-link small{font-size:10px}
+.atry-network-destination,.agency-business-link em{font-size:11px}
+.catalog-create small,.catalog-intent-copy>span,.catalog-popular-card em,.catalog-more span{font-size:11px;line-height:1.45}
+.catalog-intent-copy small,.catalog-popular-card small{font-size:10px}
+.catalog-start-copy p,.catalog-landing p{font-size:14px;line-height:1.55}
+.wizard-progress button,.wizard-card-head p,.wizard-type small,.wizard-quantity-note,.wizard-final>p,.wizard-preview-copy>span,.wizard-preview-progress b{font-size:11px}
+.wizard-header>div small,.wizard-card-head>div>small,.wizard-combined>div>small,.wizard-preview-copy>small{font-size:10px}
+.wizard-type b,.wizard-choice-grid button,.wizard-back,.wizard-next,.wizard-final .builder-add{font-size:13px}
+.wizard-inline-field>span,.wizard-combined .segmented button,.wizard-deadline button,.builder-upload small{font-size:12px}
+.wizard-idea textarea,.wizard-inline-field input{font-size:14px}
+body .wizard-progress button,body .wizard-card-head p,body .wizard-type small,body .wizard-quantity-note,body .wizard-final>p,body .wizard-preview-copy>span,body .wizard-preview-progress b{font-size:11px}
+body .wizard-header>div small,body .wizard-card-head>div>small,body .wizard-combined>div>small,body .wizard-preview-copy>small{font-size:10px}
+body .wizard-type b,body .wizard-choice-grid button,body .wizard-back,body .wizard-next,body .wizard-final .builder-add{font-size:13px}
+body .wizard-inline-field>span,body .wizard-combined .segmented button,body .wizard-deadline button,body .builder-upload small{font-size:12px}
+.product-wizard-top span,.detail-question-head small{font-size:10px}
+.product-wizard-top strong{font-size:11px}
+.detail-question-head p{font-size:13px;line-height:1.5}
+.product-wizard-card .config-options button,.product-wizard-nav button{font-size:13px}
+.product-wizard-card .config-text input,.product-wizard-card .config-text textarea{font-size:14px}
+.detail-single-field>small{font-size:12px!important}
+.detail-ready-note{font-size:11px!important}
+.detail-ready-summary span{font-size:11px;line-height:1.4}
+.product-wizard .upload-disclosure{font-size:12px}
+
+@media(max-width:767px){
+  .mobile-item small,.mobile-agency-link{font-size:11px}
+  .home-hero p.home-service-line{font-size:14px!important;line-height:1.55}
+  .category,.catalog-filter-strip button{font-size:11px}
+  .product-card h3{font-size:15px}
+  .product-open>p{font-size:12px;line-height:1.5}
+  .product-card-footer>span{font-size:11px}
+  .builder-access small,.catalog-start-copy p,.catalog-landing p,.catalog-intent-copy>span,.catalog-tail p{font-size:12px}
+  .catalog-create b{font-size:13px}.catalog-create small{font-size:11px}
+  .catalog-results-head>span,.catalog-more span{font-size:11px}
+  .segmented button,.config-options button,.reference-upload,.primary,.secondary-button,.whatsapp-button,.catalog-empty button,.catalog-tail button{font-size:13px}
+  .detail-description,.process-head p,.process-list p,.faq details p,.business-hero p,.business-proof p,.business-work p,.business-examples-track p,.process-final p{font-size:13px}
+  .config-field>small,.builder-controls section>small,.contact-panel label{font-size:12px}
+  body .wizard-card-head p,body .wizard-type small,body .wizard-quantity-note,body .wizard-final>p,body .builder-upload small{font-size:11px}
+  body .wizard-type b,body .wizard-choice-grid button,body .wizard-back,body .wizard-next,body .wizard-final .builder-add{font-size:12px}
+  body .wizard-combined>div>small,body .wizard-card-head>div>small,body .wizard-header>div small{font-size:10px}
+  .product-wizard-card .config-options button,.product-wizard-nav button{font-size:13px}
+  .request-page-head>div>small,.request-item-content>small,.request-summary .request-limit{font-size:10px!important}
+  .request-page-head p,.request-item-actions button,.item-configuration summary,.request-config-grid>span{font-size:11px!important}
+  .site-footer p,.site-footer nav a,.site-footer nav button,.contact-pending,.footer-copy{font-size:12px}
+}
+
+@media(min-width:768px) and (max-width:900px){.catalog-popular{margin-left:0;margin-right:0}}
