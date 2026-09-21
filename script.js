@@ -138,7 +138,7 @@
       const rows=await supabaseRpc("get_public_catalog");
       if(!Array.isArray(rows)||!rows.length)return;
       const previous=state.current?.id;
-      products=rows.map(row=>({id:row.id,name:row.name,group:row.category,icon:row.settings?.icon||"ph-cube",detail:row.description||"Lo preparamos a medida para vos.",minQuantity:row.min_quantity||1,featured:Boolean(row.featured),publicationStatus:row.publication_status||"published",imageUrl:publicStorageUrl(row.image_path),imageAlt:row.image_alt||row.name,badge:row.badge||"",source:"supabase"}));
+      products=rows.map(row=>({id:row.id,name:row.name,group:row.category,icon:row.settings?.icon||"ph-cube",detail:row.description||"Lo preparamos a medida para vos.",minQuantity:row.min_quantity||1,featured:Boolean(row.featured),publicationStatus:row.publication_status||"published",imageUrl:publicStorageUrl(row.image_path),imageAlt:row.image_alt||row.name,badge:row.badge||"",imagePositionX:Number(row.settings?.image_position_x??50),imagePositionY:Number(row.settings?.image_position_y??50),imageZoom:Number(row.settings?.image_zoom??1),imageFit:row.settings?.image_fit==="contain"?"contain":"cover",imageBackground:/^#[0-9a-f]{6}$/i.test(row.settings?.image_background||"")?row.settings.image_background:"#d9dcdf",source:"supabase"}));
       state.current=products.find(item=>item.id===previous)||products[0];
       if(state.route==="detail"&&!products.some(item=>item.id===previous)){state.route="catalog";navigateToRoute("catalog",{replace:true,renderRoute:false});}
       render({scroll:false,entry:false});
@@ -398,6 +398,11 @@
     return "recursos/imagenes/referencias/marca.jpg";
   }
 
+  function productImageStyle(product){
+    const x=Math.min(100,Math.max(0,Number(product?.imagePositionX??50)));const y=Math.min(100,Math.max(0,Number(product?.imagePositionY??50)));const zoom=Math.min(1.8,Math.max(.7,Number(product?.imageZoom??1)));const fit=product?.imageFit==="contain"?"contain":"cover";const background=/^#[0-9a-f]{6}$/i.test(product?.imageBackground||"")?product.imageBackground:"#d9dcdf";
+    return `--image-x:${x}%;--image-y:${y}%;--image-zoom:${zoom};--image-fit:${fit};--image-bg:${background}`;
+  }
+
   function builderStockImage(type=""){
     const value=type.toLowerCase();
     if(value.includes("evento"))return "recursos/imagenes/productos/souvenirs-atry.png";
@@ -477,7 +482,7 @@
     const upcoming=product.publicationStatus==="upcoming";
     return `<article class="product-card ${upcoming?"is-upcoming":""}" data-product="${product.id}" data-entry>
       <button class="product-open" type="button" aria-label="Ver ${product.name}">
-      <div class="product-image-wrap"><img data-product-image src="${imageFor(product)}" alt="${escapeText(product.imageAlt||product.name)}" loading="lazy" decoding="async">${upcoming?'<span class="coming-overlay">Próximamente</span>':""}<span class="product-icon"><i class="ph ${product.icon}" aria-hidden="true"></i></span></div>
+      <div class="product-image-wrap"><img class="${product.source==="supabase"?"managed-product-image":""}" data-product-image src="${imageFor(product)}" alt="${escapeText(product.imageAlt||product.name)}" loading="lazy" decoding="async" style="${productImageStyle(product)}">${upcoming?'<span class="coming-overlay">Próximamente</span>':""}<span class="product-icon"><i class="ph ${product.icon}" aria-hidden="true"></i></span></div>
       <span class="product-badge">${escapeText(product.badge||product.group.split(" · ")[0])}</span>
       <h3>${product.name}</h3><p>${product.detail}</p></button>
       <div class="product-card-footer"><span>${upcoming?"Consultar":"Configurar"}</span><button data-configure="${product.id}" aria-label="${upcoming?"Consultar":"Configurar"} ${product.name}"><i class="ph ph-arrow-right"></i></button></div>
@@ -558,7 +563,7 @@
         <div class="catalog-intents" aria-label="Explorar el catálogo según lo que necesitás">${intents.map(([value,eyebrow,title,text,morph,icon])=>`<button data-catalog-intent="${value}" data-entry><span class="catalog-intent-top"><span class="catalog-intent-icon" data-morph="${morph}"><i class="ph ${icon}" aria-hidden="true"></i></span><span class="catalog-intent-arrow"><i class="ph ph-arrow-up-right" aria-hidden="true"></i></span></span><span class="catalog-intent-copy"><small>${eyebrow}</small><b>${title}</b><span>${text}</span></span></button>`).join("")}</div>
       </section>
 
-      ${!state.search&&state.category==="Todos"?`<section class="catalog-popular"><div class="catalog-section-title" data-entry><small>LOS QUE MÁS NOS PIDEN</small><h2>Cuatro buenos lugares para empezar.</h2></div><div class="catalog-popular-grid">${popular.map(product=>`<button class="catalog-popular-card" data-product="${product.id}" data-entry><img data-product-image src="${imageFor(product)}" alt="${product.name}" loading="lazy" decoding="async"><span><small>${product.group.split(" · ")[0]}</small><strong>${product.name}</strong><em>Ver producto <i class="ph ph-arrow-right" aria-hidden="true"></i></em></span></button>`).join("")}</div></section>`:""}
+      ${!state.search&&state.category==="Todos"?`<section class="catalog-popular"><div class="catalog-section-title" data-entry><small>LOS QUE MÁS NOS PIDEN</small><h2>Cuatro buenos lugares para empezar.</h2></div><div class="catalog-popular-grid">${popular.map(product=>`<button class="catalog-popular-card" data-product="${product.id}" data-entry><img data-product-image src="${imageFor(product)}" alt="${product.name}" loading="lazy" decoding="async" style="${productImageStyle(product)}"><span><small>${product.group.split(" · ")[0]}</small><strong>${product.name}</strong><em>Ver producto <i class="ph ph-arrow-right" aria-hidden="true"></i></em></span></button>`).join("")}</div></section>`:""}
 
       <section class="catalog-results" id="catalog-results" aria-labelledby="catalog-results-title">
         <div class="catalog-search-wrap" data-entry><label class="catalog-search"><i class="ph ph-magnifying-glass" aria-hidden="true"></i><input id="search" type="search" value="${escapeText(state.search)}" aria-label="Buscar en el catálogo" placeholder="¿Qué estás buscando?"></label><span><i class="ph ph-map-pin" aria-hidden="true"></i> Hecho en Montevideo</span></div>
@@ -691,7 +696,7 @@
           </div>
         </section>
       </div>
-      <div class="detail-visual" data-entry><div class="detail-halo"></div><img id="product-detail-image" src="${imageFor(product)}" alt="${product.name}"><span class="detail-visual-label"><i class="ph ${product.icon}"></i>${product.name}</span></div>
+      <div class="detail-visual" data-entry><div class="detail-halo"></div><img id="product-detail-image" src="${imageFor(product)}" alt="${product.name}" style="${productImageStyle(product)}"><span class="detail-visual-label"><i class="ph ${product.icon}"></i>${product.name}</span></div>
     </section>`;
   }
 
