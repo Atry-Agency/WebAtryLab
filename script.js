@@ -125,7 +125,7 @@
   products.push(...catalogSupplement.filter(extra=>!products.some(product=>product.name===extra.name)));
 
   const supabaseConfig=window.ATRY_SUPABASE_CONFIG||{};
-  const catalogPlaceholder="recursos/imagenes/proximamente-atry.svg?v=2";
+  const catalogPlaceholder="recursos/imagenes/proximamente-atry.svg?v=3";
   function publicStorageUrl(path){return path&&supabaseConfig.url?`${supabaseConfig.url}/storage/v1/object/public/catalog-images/${String(path).split("/").map(encodeURIComponent).join("/")}`:"";}
   async function supabaseRpc(name,payload={}){
     if(!supabaseConfig.url||!supabaseConfig.publishableKey)throw new Error("Supabase no está configurado");
