@@ -398,8 +398,8 @@
     return "recursos/imagenes/referencias/marca.jpg";
   }
 
-  function productImageStyle(product){
-    const x=Math.min(100,Math.max(0,Number(product?.imagePositionX??50)));const y=Math.min(100,Math.max(0,Number(product?.imagePositionY??50)));const zoom=Math.min(1.8,Math.max(.7,Number(product?.imageZoom??1)));const fit=product?.imageFit==="contain"?"contain":"cover";const background=/^#[0-9a-f]{6}$/i.test(product?.imageBackground||"")?product.imageBackground:"#d9dcdf";
+  function productImageStyle(product,showFull=false){
+    const x=showFull?50:Math.min(100,Math.max(0,Number(product?.imagePositionX??50)));const y=showFull?50:Math.min(100,Math.max(0,Number(product?.imagePositionY??50)));const zoom=showFull?1:Math.min(2.4,Math.max(.7,Number(product?.imageZoom??1)));const fit=showFull?"contain":product?.imageFit==="contain"?"contain":"cover";const background=/^#[0-9a-f]{6}$/i.test(product?.imageBackground||"")?product.imageBackground:"#d9dcdf";
     return `--image-x:${x}%;--image-y:${y}%;--image-zoom:${zoom};--image-fit:${fit};--image-bg:${background}`;
   }
 
@@ -696,7 +696,7 @@
           </div>
         </section>
       </div>
-      <div class="detail-visual" data-entry><div class="detail-halo"></div><img id="product-detail-image" src="${imageFor(product)}" alt="${product.name}" style="${productImageStyle(product)}"><span class="detail-visual-label"><i class="ph ${product.icon}"></i>${product.name}</span></div>
+      <div class="detail-visual" data-entry><div class="detail-halo"></div><img id="product-detail-image" src="${imageFor(product)}" alt="${product.name}" style="${productImageStyle(product,true)}"><span class="detail-visual-label"><i class="ph ${product.icon}"></i>${product.name}</span></div>
     </section>`;
   }
 
