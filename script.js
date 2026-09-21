@@ -22,7 +22,7 @@
     return String(value).replace(/[&<>"']/g,char=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[char]));
   }
 
-  const products = [
+  let products = [
     {id:"llaveros",name:"Llaveros personalizados",group:"Tu marca",icon:"ph-key",detail:"Tu logo, nombre o diseño convertido en un objeto que acompaña todos los días."},
     {id:"porta-qr",name:"Porta QR",group:"Tu marca · Negocios",icon:"ph-qr-code",detail:"Un soporte limpio y estable para compartir menú, redes, WiFi o medios de pago."},
     {id:"logos-3d",name:"Logos 3D",group:"Tu marca",icon:"ph-cube-focus",detail:"Tu identidad convertida en una pieza física para escritorio, pared, mostrador o stand."},
@@ -123,6 +123,27 @@
     ["modelado-3d","Servicio de modelado 3D","A medida","ph-cube-transparent"]
   ].map(([id,name,group,icon])=>({id,name,group,icon,detail:`${name} desarrollado a medida, con materiales y terminación definidos según el uso.`}));
   products.push(...catalogSupplement.filter(extra=>!products.some(product=>product.name===extra.name)));
+
+  const supabaseConfig=window.ATRY_SUPABASE_CONFIG||{};
+  const catalogPlaceholder="recursos/imagenes/proximamente-atry.svg";
+  function publicStorageUrl(path){return path&&supabaseConfig.url?`${supabaseConfig.url}/storage/v1/object/public/catalog-images/${String(path).split("/").map(encodeURIComponent).join("/")}`:"";}
+  async function supabaseRpc(name,payload={}){
+    if(!supabaseConfig.url||!supabaseConfig.publishableKey)throw new Error("Supabase no está configurado");
+    const response=await fetch(`${supabaseConfig.url}/rest/v1/rpc/${name}`,{method:"POST",headers:{apikey:supabaseConfig.publishableKey,Authorization:`Bearer ${supabaseConfig.publishableKey}`,"Content-Type":"application/json"},body:JSON.stringify(payload)});
+    if(!response.ok)throw new Error((await response.text())||`Error ${response.status}`);
+    return response.json();
+  }
+  async function loadRemoteCatalog(){
+    try{
+      const rows=await supabaseRpc("get_public_catalog");
+      if(!Array.isArray(rows)||!rows.length)return;
+      const previous=state.current?.id;
+      products=rows.map(row=>({id:row.id,name:row.name,group:row.category,icon:row.settings?.icon||"ph-cube",detail:row.description||"Lo preparamos a medida para vos.",minQuantity:row.min_quantity||1,featured:Boolean(row.featured),publicationStatus:row.publication_status||"published",imageUrl:publicStorageUrl(row.image_path),imageAlt:row.image_alt||row.name,badge:row.badge||"",source:"supabase"}));
+      state.current=products.find(item=>item.id===previous)||products[0];
+      if(state.route==="detail"&&!products.some(item=>item.id===previous)){state.route="catalog";navigateToRoute("catalog",{replace:true,renderRoute:false});}
+      render({scroll:false,entry:false});
+    }catch(error){console.warn("Catálogo remoto no disponible; se mantiene la versión local.",error);}
+  }
 
   const categories = [
     {name:"Todos",match:"",icon:"ph-dots-nine"},
@@ -256,7 +277,7 @@
     route:"home", current:products[0], category:"Todos", search:"", catalogLimit:12, items:Array.isArray(storedItems)?storedItems:[],
     quantity:"",customQuantity:"",size:"",colors:new Set(),design:"Necesito ayuda",deadline:"",deadlineDate:"",file:"",files:[],fileObjects:[],
     answers:defaultAnswers(getProductProfile(products[0])),filePreview:"",filePreviews:[],customerName:"", customerContext:"", customerMessage:"",
-    favorites:new Set(readStorage(STORAGE_FAVORITES,[])),editingUid:"",origin:null,messageWasCompacted:false,builderStep:0,detailStep:0,
+    customerPhone:"",customerEmail:"",submittedRequestId:"",favorites:new Set(readStorage(STORAGE_FAVORITES,[])),editingUid:"",origin:null,messageWasCompacted:false,builderStep:0,detailStep:0,
     builder:emptyBuilder()
   };
 
@@ -343,7 +364,7 @@
   function deadlineText(deadline,date){return ["Fecha definida","Tengo una fecha"].includes(deadline)&&date?`Fecha definida · ${new Date(`${date}T12:00:00`).toLocaleDateString("es-UY")}`:deadline||"A definir";}
   function trimMessage(value,max=180){const text=String(value||"").replace(/\s+/g," ").trim();return text.length>max?`${text.slice(0,max-1)}…`:text;}
   function validQuantity(choice,custom){const value=selectedQuantity(choice,custom);return choice==="Otra"?/^[1-9]\d{0,4}$/.test(value):Boolean(value);}
-  function minimumQuantity(product){return product?.id==="llaveros"?10:1;}
+  function minimumQuantity(product){return Number(product?.minQuantity||(product?.id==="llaveros"?10:1));}
   function validProductQuantity(choice,custom,product){const value=selectedQuantity(choice,custom);const amount=parseInt(value,10);return validQuantity(choice,custom)&&Number.isFinite(amount)&&amount>=minimumQuantity(product);}
   function builderMinimumQuantity(type=state.builder.type){return ["Para mi marca o negocio","Para un evento"].includes(type)?10:1;}
   function validBuilderQuantity(choice=state.builder.quantity,custom=state.builder.customQuantity,type=state.builder.type){const amount=parseInt(selectedQuantity(choice,custom),10);return validQuantity(choice,custom)&&Number.isFinite(amount)&&amount>=builderMinimumQuantity(type);}
@@ -357,6 +378,8 @@
   function builderRequiredValues(){const validDeadline=state.builder.deadline?state.builder.deadline==="Tengo una fecha"?(validFutureDate(state.builder.deadlineDate)?state.builder.deadlineDate:""):"sin fecha exacta":"";return [state.builder.type,state.builder.idea.trim(),hasValue(state.builder.environment)?displayValue(state.builder.environment):"",validQuantity(state.builder.quantity,state.builder.customQuantity)?selectedQuantity(state.builder.quantity,state.builder.customQuantity):"",state.builder.deadline,validDeadline];}
 
   function imageFor(product){
+    if(product.imageUrl)return product.imageUrl;
+    if(product.source==="supabase"||product.publicationStatus==="upcoming")return catalogPlaceholder;
     const base="recursos/imagenes/productos/";
     const exact={llaveros:"llaveros-atry.png","porta-qr":"porta-qr-atry.png",souvenirs:"souvenirs-atry.png",trofeos:"trofeos-atry.png",medallas:"medallas.png",organizadores:"organizadores.png",mascotas:"mascota.png",jarrones:"jarron.png",exhibidores:"exhibidor.png",maquetas:"maqueta.png"};
     if(exact[product.id])return `${base}${exact[product.id]}`;
@@ -451,18 +474,19 @@
   }
 
   function productCard(product){
-    return `<article class="product-card" data-product="${product.id}" data-entry>
+    const upcoming=product.publicationStatus==="upcoming";
+    return `<article class="product-card ${upcoming?"is-upcoming":""}" data-product="${product.id}" data-entry>
       <button class="product-open" type="button" aria-label="Ver ${product.name}">
-      <div class="product-image-wrap"><img data-product-image src="${imageFor(product)}" alt="${product.name}" loading="lazy" decoding="async"><span class="product-icon"><i class="ph ${product.icon}" aria-hidden="true"></i></span></div>
-      <span class="product-badge">${product.group.split(" · ")[0]}</span>
+      <div class="product-image-wrap"><img data-product-image src="${imageFor(product)}" alt="${escapeText(product.imageAlt||product.name)}" loading="lazy" decoding="async">${upcoming?'<span class="coming-overlay">Próximamente</span>':""}<span class="product-icon"><i class="ph ${product.icon}" aria-hidden="true"></i></span></div>
+      <span class="product-badge">${escapeText(product.badge||product.group.split(" · ")[0])}</span>
       <h3>${product.name}</h3><p>${product.detail}</p></button>
-      <div class="product-card-footer"><span>Configurar</span><button data-configure="${product.id}" aria-label="Configurar ${product.name}"><i class="ph ph-arrow-right"></i></button></div>
+      <div class="product-card-footer"><span>${upcoming?"Consultar":"Configurar"}</span><button data-configure="${product.id}" aria-label="${upcoming?"Consultar":"Configurar"} ${product.name}"><i class="ph ph-arrow-right"></i></button></div>
     </article>`;
   }
 
   function filteredProducts(limit){
     const category=categories.find(item=>item.name===state.category);
-    let list=state.route==="home"&&!state.search&&state.category==="Todos"?featured.map(id=>products.find(p=>p.id===id)):products;
+    let list=state.route==="home"&&!state.search&&state.category==="Todos"?(products.some(item=>item.source==="supabase")?products.filter(item=>item.featured):featured.map(id=>products.find(p=>p.id===id)).filter(Boolean)):products;
     if(category?.matches?.length) list=list.filter(product=>category.matches.some(match=>product.group.includes(match)));
     if(state.search){const query=state.search.toLocaleLowerCase("es");list=list.filter(product=>`${product.name} ${product.group} ${product.detail}`.toLocaleLowerCase("es").includes(query));}
     return limit?list.slice(0,limit):list;
@@ -683,7 +707,7 @@
     if(!state.items.length)return request();
     const fileCount=state.items.reduce((total,item)=>total+(item.files?.length||(item.file?1:0)),0);const readyFileCount=requestFileObjects().length;const hasFiles=fileCount>0;const filesReady=hasFiles&&readyFileCount===fileCount;
     return `<section class="simple-page checkout-page"><div class="page-head" data-entry><button class="round" data-route="request" aria-label="Volver a mi solicitud"><i class="ph ph-arrow-left" aria-hidden="true"></i></button><h1>Enviar consulta</h1><span></span></div>
-      <div class="checkout-grid"><div class="contact-panel" data-entry><span class="section-label">TUS DATOS</span><h2>¿Con quién hablamos?</h2><label>Nombre<input id="customer-name" maxlength="80" value="${escapeText(state.customerName)}" placeholder="Tu nombre"></label><label>Marca, empresa o evento <small>(opcional)</small><input id="customer-context" maxlength="100" value="${escapeText(state.customerContext)}" placeholder="Ej.: Café Centro"></label><label>Algo más que debamos saber <small>(opcional)</small><textarea id="customer-message" maxlength="500" rows="3" placeholder="Uso, medidas, fecha o cualquier detalle útil">${escapeText(state.customerMessage)}</textarea></label><p><i class="ph ph-shield-check" aria-hidden="true"></i> Usamos estos datos únicamente para responder esta cotización. No hay pago online: confirmamos precio, material, plazo y entrega o retiro antes de fabricar.</p></div>
+      <div class="checkout-grid"><div class="contact-panel" data-entry><span class="section-label">TUS DATOS</span><h2>¿Con quién hablamos?</h2><label>Nombre<input id="customer-name" maxlength="80" value="${escapeText(state.customerName)}" placeholder="Tu nombre"></label><div class="contact-row"><label>WhatsApp<input id="customer-phone" inputmode="tel" maxlength="30" value="${escapeText(state.customerPhone)}" placeholder="099 000 000"></label><label>Email <small>(opcional)</small><input id="customer-email" type="email" maxlength="120" value="${escapeText(state.customerEmail)}" placeholder="nombre@correo.com"></label></div><label>Marca, empresa o evento <small>(opcional)</small><input id="customer-context" maxlength="100" value="${escapeText(state.customerContext)}" placeholder="Ej.: Café Centro"></label><label>Algo más que debamos saber <small>(opcional)</small><textarea id="customer-message" maxlength="500" rows="3" placeholder="Uso, medidas, fecha o cualquier detalle útil">${escapeText(state.customerMessage)}</textarea></label><p><i class="ph ph-shield-check" aria-hidden="true"></i> La solicitud queda registrada de forma segura para poder responderte y darle seguimiento. No hay pago online: confirmamos precio, material, plazo y entrega o retiro antes de fabricar.</p></div>
       <aside class="checkout-summary" data-entry><span class="section-label">RESUMEN</span><h2>${state.items.length} ${state.items.length===1?"idea":"ideas"} para cotizar</h2>${state.items.map(item=>`<p><span>${item.name}<small>${item.quantity} · ${itemAnswerRows(item)[0]?.[1]||item.size}</small></span><i class="ph ${item.icon}"></i></p>`).join("")}${hasFiles?`<div class="attachment-note"><i class="ph ph-paperclip" aria-hidden="true"></i><span><b>${fileCount} ${fileCount===1?"referencia preparada":"referencias preparadas"}</b>${filesReady?"En el celular elegí WhatsApp en el menú Compartir. El resumen y los archivos viajarán juntos.":"El resumen indicará las referencias. Si recargaste la página, adjuntalas directamente en el chat de WhatsApp."}</span></div>`:""}<button class="whatsapp-button" id="send-whatsapp"><i class="ph ph-whatsapp-logo"></i> ${filesReady?"Compartir pedido con referencias":"Enviar consulta por WhatsApp"}</button></aside></div>
     </section>`;
   }
@@ -892,8 +916,20 @@
     if(state.customerName)lines.push(`- Nombre: ${state.customerName}`);
     if(state.customerContext)lines.push(`- Marca, empresa o evento: ${state.customerContext}`);
     if(state.customerMessage)lines.push(`- Comentario adicional: ${trimMessage(state.customerMessage,400)}`);
-    lines.push("","¿Me confirman precio, material recomendado, plazo y forma de entrega o retiro?","","Gracias.");
+    if(state.submittedRequestId)lines.push(`CÓDIGO DE SOLICITUD: ${state.submittedRequestId}`,"");
+    lines.push("¿Me confirman precio, material recomendado, plazo y forma de entrega o retiro?","","Gracias.");
     return lines.join("\n");
+  }
+
+  function publicRequestPayload(){
+    const cleanItems=state.items.map(item=>({id:item.id,name:item.name,group:item.group,quantity:item.quantity,deadline:deadlineText(item.deadline,item.deadlineDate),idea:item.idea||null,answers:item.answers||{},reference_files:item.files||[]}));
+    return {p_customer_name:state.customerName,p_customer_company:state.customerContext||null,p_customer_phone:state.customerPhone||null,p_customer_email:state.customerEmail||null,p_title:state.items.length===1?state.items[0].name:`Solicitud de ${state.items.length} productos`,p_category:[...new Set(state.items.map(item=>item.group.split(" · ")[0]))].join(" · "),p_quantity:state.items.reduce((sum,item)=>sum+(parseInt(item.quantity,10)||1),0),p_deadline:[...new Set(state.items.map(item=>deadlineText(item.deadline,item.deadlineDate)))].join(" · "),p_notes:state.customerMessage||null,p_configuration:{version:1,items:cleanItems,has_references:cleanItems.some(item=>item.reference_files.length)}};
+  }
+
+  async function registerPublicRequest(){
+    if(state.submittedRequestId)return state.submittedRequestId;
+    const id=await supabaseRpc("submit_public_request",publicRequestPayload());
+    state.submittedRequestId=String(id||""); return state.submittedRequestId;
   }
 
   function requestFileObjects(){return state.items.flatMap(item=>Array.isArray(item.fileObjects)?item.fileObjects:[]).filter(file=>file instanceof File);}
@@ -1020,7 +1056,7 @@
     view.querySelector("#save-product")?.addEventListener("click",()=>{const id=state.current.id;if(state.favorites.has(id)){state.favorites.delete(id);notify("Quitado de guardados");}else{state.favorites.add(id);notify("Guardado para más tarde");}persistFavorites();render({scroll:false,entry:false});});
     view.querySelectorAll("[data-edit]").forEach(button=>button.addEventListener("click",()=>editItem(button.dataset.edit)));
     view.querySelectorAll("[data-remove]").forEach(button=>button.addEventListener("click",()=>{state.items=state.items.filter(item=>item.uid!==button.dataset.remove);persistRequest();render({scroll:false});notify("Opción quitada");}));
-    view.querySelector("#send-whatsapp")?.addEventListener("click",async()=>{state.customerName=view.querySelector("#customer-name").value.trim();state.customerContext=view.querySelector("#customer-context").value.trim();state.customerMessage=view.querySelector("#customer-message").value.trim();if(!state.customerName){notify("Decinos tu nombre para continuar");view.querySelector("#customer-name").focus();return;}let message=buildMessage();state.messageWasCompacted=encodeURIComponent(message).length>7000;if(state.messageWasCompacted)message=buildMessage(true);const sent=await sendWhatsAppRequest(message);if(sent){state.route="success";navigateToRoute("success",{renderRoute:false});render();}});
+    view.querySelector("#send-whatsapp")?.addEventListener("click",async()=>{state.customerName=view.querySelector("#customer-name").value.trim();state.customerPhone=view.querySelector("#customer-phone").value.trim();state.customerEmail=view.querySelector("#customer-email").value.trim();state.customerContext=view.querySelector("#customer-context").value.trim();state.customerMessage=view.querySelector("#customer-message").value.trim();if(!state.customerName){notify("Decinos tu nombre para continuar");view.querySelector("#customer-name").focus();return;}if(state.customerPhone.replace(/\D/g,"").length<8){notify("Ingresá un WhatsApp válido para poder responderte");view.querySelector("#customer-phone").focus();return;}const button=view.querySelector("#send-whatsapp");button.disabled=true;button.innerHTML='<i class="ph ph-circle-notch"></i> Registrando solicitud';try{await registerPublicRequest();notify(`Solicitud ${state.submittedRequestId} registrada`);}catch(error){console.error(error);notify("No pudimos registrarla en el panel; igual podés enviarla por WhatsApp");}let message=buildMessage();state.messageWasCompacted=encodeURIComponent(message).length>7000;if(state.messageWasCompacted)message=buildMessage(true);const sent=await sendWhatsAppRequest(message);button.disabled=false;if(sent){state.route="success";navigateToRoute("success",{renderRoute:false});render();}});
     view.querySelector("[data-builder-next]")?.addEventListener("click",()=>{const issue=builderStepIssue(state.builderStep);if(issue){notify(issue);const card=view.querySelector(".wizard-card");if(card&&!matchMedia("(prefers-reduced-motion: reduce)").matches)card.animate([{transform:"translateX(0)"},{transform:"translateX(-5px)"},{transform:"translateX(5px)"},{transform:"translateX(0)"}],{duration:260});return;}moveBuilderStep(state.builderStep+1,1);});
     view.querySelector("[data-builder-prev]")?.addEventListener("click",()=>moveBuilderStep(state.builderStep-1,-1));
     view.querySelectorAll("[data-builder-jump]").forEach(button=>button.addEventListener("click",()=>moveBuilderStep(Number(button.dataset.builderJump),-1)));
@@ -1046,4 +1082,5 @@
 
   window.addEventListener("hashchange",handleRoute);
   handleRoute();
+  loadRemoteCatalog();
 })();
