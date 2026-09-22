@@ -645,6 +645,16 @@ button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible,
 .whatsapp-button{transition:transform .2s,box-shadow .2s}
 .whatsapp-button:hover{transform:translateY(-2px);box-shadow:0 20px 44px rgba(8,45,57,.34)}
 
+/* Entrega de solicitudes */
+.delivery-form{margin-top:22px;padding-top:20px;border-top:1px solid var(--line)}
+.delivery-title{display:block;margin-bottom:10px;color:#403b3e;font-size:12px}
+.delivery-options{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.delivery-options button{min-height:72px;padding:12px;display:grid;grid-template-columns:30px 1fr;align-items:center;gap:8px;border:1px solid var(--line);border-radius:14px;color:#625d60;background:#fbfaf9;text-align:left;transition:border-color .2s,background .2s,box-shadow .2s,transform .2s}
+.delivery-options button>i{font-size:22px;color:#869095}.delivery-options button span{display:grid;gap:3px}.delivery-options button b{font-size:11px}.delivery-options button small{color:#999295;font-size:8px;line-height:1.25}
+.delivery-options button:hover{transform:translateY(-1px);border-color:#9edee9}.delivery-options button.active{color:#092a34;border-color:#42c7dd;background:#eaf9fb;box-shadow:0 0 0 3px rgba(20,174,201,.09)}.delivery-options button.active>i{color:#079ab6}
+.delivery-address{margin-top:11px;padding:13px;border-radius:15px;background:#f5f9f9}.delivery-address.is-hidden{display:none}
+@media(max-width:767px){.delivery-options{grid-template-columns:1fr}.delivery-options button{min-height:62px}.delivery-title{font-size:12px}}
+
 /* Accesos de creación y categorías con identidad ATRY */
 .builder-access-logo{width:39px;height:39px;display:block;object-fit:contain;filter:drop-shadow(0 0 10px rgba(75,218,242,.28))}
 .category{color:#4e5d62}
