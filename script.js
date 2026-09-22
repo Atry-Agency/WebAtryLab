@@ -282,7 +282,7 @@
   };
 
   const ROUTE_PATHS = {
-    home:"/",catalog:"/catalogo",builder:"/crear",business:"/empresas",process:"/como-funciona",request:"/solicitud"
+    home:"/",catalog:"/catalogo",builder:"/crear",business:"/empresas",process:"/como-funciona",request:"/solicitud",checkout:"/solicitud/envio",success:"/solicitud/enviada"
   };
 
   function normalizedHashPath(path="/"){
@@ -292,7 +292,6 @@
 
   function routePath(route=state.route,product=state.current){
     if(route==="detail"&&product?.id)return `/producto/${product.id}`;
-    if(route==="checkout"||route==="success")return ROUTE_PATHS.request;
     return ROUTE_PATHS[route]||ROUTE_PATHS.home;
   }
 
@@ -1000,7 +999,7 @@
 
   function bindEvents(){
     view.querySelectorAll("[data-back]").forEach(button=>button.addEventListener("click",()=>{const origin=state.origin||{route:"home",scrollTop:0,windowY:0};const root=document.documentElement;const previousBehavior=root.style.scrollBehavior;root.style.scrollBehavior="auto";state.editingUid="";state.route=origin.route||"home";state.category=origin.category||state.category;state.search=origin.search||"";navigateToRoute(state.route,{renderRoute:false});render({scroll:false,entry:false});view.scrollTop=origin.scrollTop||0;window.scrollTo({top:origin.windowY||0,left:0,behavior:"auto"});requestAnimationFrame(()=>{root.style.scrollBehavior=previousBehavior;});}));
-    view.querySelectorAll("[data-route]").forEach(button=>button.addEventListener("click",()=>{state.editingUid="";const route=button.dataset.route;if(route==="checkout"){state.route=route;navigateToRoute(route,{renderRoute:false});render();return;}navigateToRoute(route);}));
+    view.querySelectorAll("[data-route]").forEach(button=>button.addEventListener("click",()=>{state.editingUid="";navigateToRoute(button.dataset.route);}));
     view.querySelector("[data-new-builder]")?.addEventListener("click",()=>{resetBuilderDraft();navigateToRoute("builder");});
     view.querySelectorAll("[data-product]").forEach(card=>card.addEventListener("click",event=>{if(event.target.closest("[data-configure]"))return;openProduct(card.dataset.product,card.querySelector("[data-product-image]"));}));
     view.querySelectorAll("[data-configure]").forEach(button=>button.addEventListener("click",event=>{event.stopPropagation();const card=button.closest("[data-product]");openProduct(button.dataset.configure,card?.querySelector("[data-product-image]"));}));
