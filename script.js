@@ -126,6 +126,7 @@
 
   const supabaseConfig=window.ATRY_SUPABASE_CONFIG||{};
   const catalogPlaceholder="recursos/imagenes/proximamente-atry.svg?v=3";
+  let remoteCatalogSignature="",catalogSyncBusy=false,catalogRenderPending=false,catalogRealtimeChannel=null;
   function publicStorageUrl(path){return path&&supabaseConfig.url?`${supabaseConfig.url}/storage/v1/object/public/catalog-images/${String(path).split("/").map(encodeURIComponent).join("/")}`:"";}
   async function supabaseRpc(name,payload={}){
     if(!supabaseConfig.url||!supabaseConfig.publishableKey)throw new Error("Supabase no está configurado");
@@ -134,15 +135,32 @@
     return response.json();
   }
   async function loadRemoteCatalog(){
+    if(catalogSyncBusy)return;
+    catalogSyncBusy=true;
     try{
       const rows=await supabaseRpc("get_public_catalog");
-      if(!Array.isArray(rows)||!rows.length)return;
+      if(!Array.isArray(rows)||(!rows.length&&!remoteCatalogSignature))return;
+      const nextProducts=rows.map(row=>({id:row.id,name:row.name,group:row.category,icon:row.settings?.icon||"ph-cube",detail:row.description||"Lo preparamos a medida para vos.",minQuantity:row.min_quantity||1,featured:Boolean(row.featured),publicationStatus:row.publication_status||"published",imageUrl:publicStorageUrl(row.image_path),imageAlt:row.image_alt||row.name,badge:row.badge||"",imagePositionX:Number(row.settings?.image_position_x??50),imagePositionY:Number(row.settings?.image_position_y??50),imageZoom:Number(row.settings?.image_zoom??1),imageFit:row.settings?.image_fit==="contain"?"contain":"cover",imageBackground:/^#[0-9a-f]{6}$/i.test(row.settings?.image_background||"")?row.settings.image_background:"#d9dcdf",source:"supabase"}));
+      const nextSignature=JSON.stringify(nextProducts);
+      if(nextSignature===remoteCatalogSignature)return;
       const previous=state.current?.id;
-      products=rows.map(row=>({id:row.id,name:row.name,group:row.category,icon:row.settings?.icon||"ph-cube",detail:row.description||"Lo preparamos a medida para vos.",minQuantity:row.min_quantity||1,featured:Boolean(row.featured),publicationStatus:row.publication_status||"published",imageUrl:publicStorageUrl(row.image_path),imageAlt:row.image_alt||row.name,badge:row.badge||"",imagePositionX:Number(row.settings?.image_position_x??50),imagePositionY:Number(row.settings?.image_position_y??50),imageZoom:Number(row.settings?.image_zoom??1),imageFit:row.settings?.image_fit==="contain"?"contain":"cover",imageBackground:/^#[0-9a-f]{6}$/i.test(row.settings?.image_background||"")?row.settings.image_background:"#d9dcdf",source:"supabase"}));
+      products=nextProducts;remoteCatalogSignature=nextSignature;
       state.current=products.find(item=>item.id===previous)||products[0];
       if(state.route==="detail"&&!products.some(item=>item.id===previous)){state.route="catalog";navigateToRoute("catalog",{replace:true,renderRoute:false});}
-      render({scroll:false,entry:false});
-    }catch(error){console.warn("Catálogo remoto no disponible; se mantiene la versión local.",error);}
+      const editing=view.querySelector("input:focus,textarea:focus,select:focus")||document.body.classList.contains("confirm-open");
+      if(["home","catalog","detail"].includes(state.route)&&!editing){catalogRenderPending=false;render({scroll:false,entry:false});}else catalogRenderPending=true;
+    }catch(error){console.warn("Catálogo remoto no disponible; se mantiene la versión local.",error);}finally{catalogSyncBusy=false;}
+  }
+
+  function startCatalogLiveSync(){
+    if(window.supabase?.createClient&&supabaseConfig.url&&supabaseConfig.publishableKey){
+      const liveClient=window.supabase.createClient(supabaseConfig.url,supabaseConfig.publishableKey,{auth:{persistSession:false,autoRefreshToken:false,detectSessionInUrl:false}});
+      catalogRealtimeChannel=liveClient.channel("atry-public-catalog-live").on("postgres_changes",{event:"*",schema:"public",table:"catalog_items"},loadRemoteCatalog).subscribe();
+    }
+    window.setInterval(()=>{if(!document.hidden)loadRemoteCatalog();},5000);
+    window.addEventListener("focus",loadRemoteCatalog);
+    document.addEventListener("visibilitychange",()=>{if(!document.hidden)loadRemoteCatalog();});
+    document.addEventListener("focusout",()=>{if(catalogRenderPending)setTimeout(()=>{if(!view.querySelector("input:focus,textarea:focus,select:focus")){catalogRenderPending=false;render({scroll:false,entry:false});}},80);});
   }
 
   const categories = [
@@ -1107,5 +1125,5 @@
 
   window.addEventListener("hashchange",handleRoute);
   handleRoute();
-  loadRemoteCatalog();
+  loadRemoteCatalog().finally(startCatalogLiveSync);
 })();
