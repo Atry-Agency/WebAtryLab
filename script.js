@@ -425,7 +425,8 @@
     if(value.includes("evento"))return "recursos/imagenes/productos/souvenirs-atry.png";
     if(value.includes("negocio"))return "recursos/imagenes/productos/exhibidor.png";
     if(value.includes("marca"))return "recursos/imagenes/productos/logo-3d.png";
-    return "recursos/imagenes/productos/pieza-funcional.png";
+    if(value)return "recursos/imagenes/productos/pieza-funcional.png";
+    return "recursos/imagenes/crear-desde-cero-blueprint.jpg";
   }
 
   function notify(message){
