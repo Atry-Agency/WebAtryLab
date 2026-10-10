@@ -133,8 +133,10 @@
   ]};
   let experiences=defaultExperiences,experiencesSignature="";
   let siteThemeConfig=window.ATRYSiteTheme.normalizeTheme(),activeSiteTheme="original",siteThemeSignature="";
+  const previewTheme=new URLSearchParams(location.search).get("theme_preview");
+  const previewSeason=["valentines","halloween","christmas"].includes(previewTheme)?previewTheme:null;
   function refreshSiteTheme(){
-    const next=window.ATRYSiteTheme.effectiveTheme(siteThemeConfig);
+    const next=previewSeason||window.ATRYSiteTheme.effectiveTheme(siteThemeConfig);
     if(next===activeSiteTheme)return false;
     activeSiteTheme=next;
     if(next==="original")delete document.documentElement.dataset.siteTheme;
@@ -142,10 +144,11 @@
     return true;
   }
   function seasonalFeatured(){
-    if(activeSiteTheme==="original")return [];
+    if(activeSiteTheme==="original"||previewSeason)return [];
     const ids=siteThemeConfig.campaigns[activeSiteTheme]?.featured_ids||[];
     return ids.map(id=>products.find(product=>product.id===id)).filter(Boolean);
   }
+  refreshSiteTheme();
   let remoteCatalogSignature="",catalogSyncBusy=false,catalogRenderPending=false,catalogRealtimeChannel=null;
   function publicStorageUrl(path){return path&&supabaseConfig.url?`${supabaseConfig.url}/storage/v1/object/public/catalog-images/${String(path).split("/").map(encodeURIComponent).join("/")}`:"";}
   async function supabaseRpc(name,payload={}){
@@ -603,7 +606,7 @@
 
   function home(catalog=false){
     const {items:list}=filteredProducts(catalog?undefined:8);
-    const campaign=activeSiteTheme==="original"?{}:siteThemeConfig.campaigns[activeSiteTheme]||{};
+    const campaign=activeSiteTheme==="original"||previewSeason?{}:siteThemeConfig.campaigns[activeSiteTheme]||{};
     const seasonalNames={valentines:"San Valentín",halloween:"Halloween",christmas:"Navidad"};
     const reviewRating=rating=>`<span class="review-rating" aria-label="${String(rating).replace('.',',')} de 5 estrellas"><span class="review-stars" aria-hidden="true">${Array.from({length:5},(_,index)=>index+1<=Math.floor(rating)?`<i class="ph ph-star"></i>`:index<rating?`<i class="ph ph-star-half"></i>`:`<i class="ph ph-star review-star-empty"></i>`).join("")}</span><b>${String(rating).replace('.',',')}</b></span>`;
     const experiencesMarkup=experiences.cards.length?`<section class="reviews-section" data-entry><div class="reviews-head"><small>${escapeText(experiences.eyebrow)}</small><h2>${escapeText(experiences.title)}</h2></div><div class="reviews-window"><div class="reviews-track ${experiences.cards.length===1?"single":""}" style="--review-duration:${Math.max(24,experiences.cards.length*6)}s">${experiences.cards.map(card=>`<article class="review-card">${card.image?`<img src="${escapeText(card.image)}" alt="${escapeText(card.product)}">`:`<div class="review-image-empty"><i class="ph ph-image-square" aria-hidden="true"></i></div>`}<div>${reviewRating(card.rating)}<blockquote>“${escapeText(card.quote)}”</blockquote><strong>${escapeText(card.client)}</strong><small>${escapeText(card.product)}</small></div></article>`).join("")}</div></div></section>`:"";
