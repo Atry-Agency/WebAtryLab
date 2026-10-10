@@ -141,6 +141,8 @@
     activeSiteTheme=next;
     if(next==="original")delete document.documentElement.dataset.siteTheme;
     else document.documentElement.dataset.siteTheme=next;
+    const browserColors={original:"#faf9f7",valentines:"#f9e9ef",halloween:"#eee0cf",christmas:"#e5f1e9"};
+    document.querySelector('meta[name="theme-color"]')?.setAttribute("content",browserColors[next]);
     return true;
   }
   function seasonalFeatured(){
@@ -606,7 +608,7 @@
 
   function seasonalAtmosphereMarkup(){
     if(activeSiteTheme==="original")return "";
-    const particles=Array.from({length:8},()=>'<span class="seasonal-particle"></span>').join("");
+    const particles=Array.from({length:activeSiteTheme==="christmas"?16:8},()=>'<span class="seasonal-particle"></span>').join("");
     const bat='<svg class="seasonal-bat" viewBox="0 0 120 60"><path d="M60 24 50 12l-6 8C31 8 16 13 2 4c6 15 10 27 22 30-4 5-5 10-4 17 10-13 20-17 40-10 20-7 30-3 40 10 1-7 0-12-4-17 12-3 16-15 22-30-14 9-29 4-42 16l-6-8z"/></svg>';
     return `<div class="seasonal-atmosphere" aria-hidden="true">${particles}${activeSiteTheme==="halloween"?bat+bat:""}</div>`;
   }
