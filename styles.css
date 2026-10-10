@@ -865,3 +865,19 @@ body.confirm-open{overflow:hidden}.whatsapp-confirm-backdrop{position:fixed;z-in
 .catalog-reference-field .reference-upload{width:100%;min-height:74px;height:auto;padding:13px 16px;cursor:pointer}
 .catalog-reference-field .reference-preview,.catalog-reference-field .reference-file{margin-top:10px}
 @media(max-width:767px){.product-request-modes{grid-template-columns:1fr}.product-request-modes button{min-height:94px;padding:15px}.product-request-modes button b{font-size:13px}.product-request-modes button small{font-size:11px}}
+
+/* En la ficha, el último paso nunca debe heredar las columnas del configurador general. */
+@media(max-width:1199px){
+  .product-wizard .detail-actions.detail-final-actions{width:100%;min-width:0;grid-template-columns:minmax(0,1fr);gap:12px}
+  .product-wizard .detail-final-actions .reference-upload,.product-wizard .detail-final-actions #add-request{width:100%;min-width:0;box-sizing:border-box}
+  .product-wizard .detail-final-actions .reference-upload{min-height:72px;height:auto;padding:13px 16px}
+  .product-wizard .detail-final-actions .reference-upload span,.product-wizard .detail-final-actions .reference-upload small{min-width:0;white-space:normal;overflow-wrap:anywhere}
+  .product-wizard .detail-final-actions #add-request{min-height:56px;white-space:normal;text-align:center;line-height:1.25}
+}
+@media(max-width:767px){
+  body[data-view="detail"] .floating-whatsapp{display:none}
+  .product-wizard .detail-ready-summary{gap:8px}
+  .product-wizard .detail-ready-summary span{min-width:0;padding:11px 13px}
+  .product-wizard .detail-ready-summary i{flex:0 0 auto}
+  .product-wizard .detail-final-actions{margin-bottom:4px}
+}
