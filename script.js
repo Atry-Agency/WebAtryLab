@@ -596,7 +596,7 @@
       <button class="product-open" type="button" aria-label="Ver ${product.name}">
       <div class="product-image-wrap"><img class="${product.source==="supabase"?"managed-product-image":""}" data-product-image src="${imageFor(product)}" alt="${escapeText(product.imageAlt||product.name)}" loading="lazy" decoding="async" style="${productImageStyle(product)}">${upcoming?'<span class="coming-overlay">Próximamente</span>':""}<span class="product-icon"><i class="ph ${product.icon}" aria-hidden="true"></i></span></div>
       <span class="product-badge">${escapeText(product.badge||product.group.split(" · ")[0])}</span>
-      <h3>${product.name}</h3><p>${product.detail}</p>${startingPrice(product)!==null?`<div class="product-starting-price"><small>DESDE</small><strong>${startingPriceLabel(product)}</strong></div>`:""}</button>
+      <h3>${product.name}</h3><p>${product.detail}</p></button>
       <div class="product-card-footer"><span>${upcoming?"Consultar":"Configurar"}</span><button data-configure="${product.id}" aria-label="${upcoming?"Consultar":"Configurar"} ${product.name}"><i class="ph ph-arrow-right"></i></button></div>
     </article>`;
   }
