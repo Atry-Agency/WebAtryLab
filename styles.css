@@ -862,4 +862,6 @@ body.confirm-open{overflow:hidden}.whatsapp-confirm-backdrop{position:fixed;z-in
 .product-request-modes button span{display:grid;gap:6px}
 .product-request-modes button b{color:#12313a;font-size:13px}
 .product-request-modes button small{color:#607078;font-size:11px;line-height:1.45}
+.catalog-reference-field .reference-upload{width:100%;min-height:74px;height:auto;padding:13px 16px;cursor:pointer}
+.catalog-reference-field .reference-preview,.catalog-reference-field .reference-file{margin-top:10px}
 @media(max-width:767px){.product-request-modes{grid-template-columns:1fr}.product-request-modes button{min-height:94px;padding:15px}.product-request-modes button b{font-size:13px}.product-request-modes button small{font-size:11px}}

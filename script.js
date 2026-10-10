@@ -140,7 +140,7 @@
     try{
       const rows=await supabaseRpc("get_public_catalog");
       if(!Array.isArray(rows)||(!rows.length&&!remoteCatalogSignature))return;
-      const nextProducts=rows.map(row=>({id:row.id,name:row.name,group:row.category,icon:row.settings?.icon||"ph-cube",detail:row.description||"Lo preparamos a medida para vos.",requestPrompt:row.settings?.request_prompt||"",minQuantity:row.min_quantity||1,featured:Boolean(row.featured),publicationStatus:row.publication_status||"published",imageUrl:publicStorageUrl(row.image_path),imageAlt:row.image_alt||row.name,badge:row.badge||"",imagePositionX:Number(row.settings?.image_position_x??50),imagePositionY:Number(row.settings?.image_position_y??50),imageZoom:Number(row.settings?.image_zoom??1),imageFit:row.settings?.image_fit==="contain"?"contain":"cover",imageBackground:/^#[0-9a-f]{6}$/i.test(row.settings?.image_background||"")?row.settings.image_background:"#d9dcdf",source:"supabase"}));
+      const nextProducts=rows.map(row=>({id:row.id,name:row.name,group:row.category,icon:row.settings?.icon||"ph-cube",detail:row.description||"Lo preparamos a medida para vos.",requestPrompt:row.settings?.request_prompt||"",orderQuestions:row.settings?.order_questions,minQuantity:row.min_quantity||1,featured:Boolean(row.featured),publicationStatus:row.publication_status||"published",imageUrl:publicStorageUrl(row.image_path),imageAlt:row.image_alt||row.name,badge:row.badge||"",imagePositionX:Number(row.settings?.image_position_x??50),imagePositionY:Number(row.settings?.image_position_y??50),imageZoom:Number(row.settings?.image_zoom??1),imageFit:row.settings?.image_fit==="contain"?"contain":"cover",imageBackground:/^#[0-9a-f]{6}$/i.test(row.settings?.image_background||"")?row.settings.image_background:"#d9dcdf",source:"supabase"}));
       const nextSignature=JSON.stringify(nextProducts);
       if(nextSignature===remoteCatalogSignature)return;
       const previous=state.current?.id;
@@ -312,10 +312,16 @@
     if(/\b(qr|nfc)\b/i.test(name))return "¿Qué enlace debe abrir?";
     return "";
   }
+  const catalogQuestionTypes=new Set(["text","color","date","url","measurement","number","choice","textarea","reference"]);
+  function configuredProductFields(product){
+    if(!Array.isArray(product?.orderQuestions))return null;
+    return product.orderQuestions.slice(0,6).filter(question=>question&&catalogQuestionTypes.has(question.type)&&/^[a-z0-9_-]{1,32}$/i.test(question.id||"")&&String(question.label||"").trim()).map(question=>({key:`question_${question.id}`,label:String(question.label).trim().slice(0,140),type:question.type,optional:question.required===false,options:Array.isArray(question.options)?question.options.map(option=>String(option)).filter(Boolean).slice(0,8):[],placeholder:question.type==="url"?"https://...":question.type==="measurement"?"Ej.: 12 cm":question.type==="color"?"Ej.: azul marino":""}));
+  }
   function productRequestProfile(product){
     const base=getProductProfile(product),prompt=includedProductPrompt(product);
     const fields=[];
     if(state.productRequestMode==="customize")fields.push({key:"cambios_solicitados",label:"¿Cómo querés personalizarlo?",type:"textarea",placeholder:"Contanos tu idea, incluso si querés cambiarlo por completo. Podemos definir juntos lo que falte."});
+    else if(configuredProductFields(product)!==null)fields.push(...configuredProductFields(product));
     else if(prompt)fields.push({key:"detalle_incluido",label:prompt,type:"text",placeholder:requiresProductUrl(product)?"https://...":"Escribilo tal como debe aparecer"});
     return {...base,fields};
   }
@@ -421,6 +427,7 @@
   function validBuilderQuantity(choice=state.builder.quantity,custom=state.builder.customQuantity,type=state.builder.type){const amount=parseInt(selectedQuantity(choice,custom),10);return validQuantity(choice,custom)&&Number.isFinite(amount)&&amount>=builderMinimumQuantity(type);}
   function todayValue(){const now=new Date();now.setMinutes(now.getMinutes()-now.getTimezoneOffset());return now.toISOString().slice(0,10);}
   function validFutureDate(value){return Boolean(value)&&value>=todayValue();}
+  function validCatalogDate(value){if(!/^\d{4}-\d{2}-\d{2}$/.test(String(value||"")))return false;const date=new Date(`${value}T12:00:00Z`);return !Number.isNaN(date.getTime())&&date.toISOString().slice(0,10)===value;}
   function validWebUrl(value){try{const url=new URL(String(value).trim());return ["http:","https:"].includes(url.protocol)&&Boolean(url.hostname);}catch{return false;}}
   function hasMeasurementUnit(value){const text=String(value||"").trim();return !/\d/.test(text)||/(mm|cm|\bm\b|metro|pulg)/i.test(text);}
   function builderProfile(){return builderProfiles[state.builder.type]||{title:"Elegí un tipo de proyecto",fields:[]};}
@@ -631,14 +638,20 @@
   function configurationField(field){
     const value=state.answers[field.key]||"";const optional=field.optional?` <em>(opcional)</em>`:` <em class="required">*</em>`;
     const labelId=`field-${field.key}`;
+    if(field.type==="reference")return `<div class="config-field catalog-reference-field" data-entry><small>${escapeText(field.label)}${optional}</small><label class="reference-upload"><input id="reference" type="file" multiple accept=".png,.jpg,.jpeg,.webp,.svg,.pdf,.stl,.obj,.3mf"><i class="ph ph-paperclip" aria-hidden="true"></i><span><b>Subir imagen o archivo</b><small>Hasta ${MAX_FILES} referencias</small></span></label>${referencePreview()}</div>`;
     if(field.type==="choice")return `<div class="config-field" data-entry role="group" aria-labelledby="${labelId}"><small id="${labelId}">${escapeText(field.label)}${optional}</small><div class="config-options" data-answer="${field.key}">${field.options.map(option=>`<button class="${value===option?"active":""}" aria-pressed="${value===option}" data-value="${escapeText(option)}">${escapeText(option)}</button>`).join("")}</div></div>`;
     if(field.type==="multi"){const selected=Array.isArray(value)?value:displayValue(value).split(" · ").filter(Boolean);return `<div class="config-field" data-entry role="group" aria-labelledby="${labelId}"><small id="${labelId}">${escapeText(field.label)}${optional}</small><div class="config-options multi-options" data-answer-multi="${field.key}">${field.options.map(option=>`<button class="${selected.includes(option)?"active":""}" aria-pressed="${selected.includes(option)}" data-value="${escapeText(option)}">${escapeText(option)}</button>`).join("")}</div></div>`;}
-    const tag=field.type==="textarea"?`<textarea rows="3" maxlength="600" aria-label="${escapeText(field.label)}" aria-required="${!field.optional}" data-answer-input="${field.key}" placeholder="${escapeText(field.placeholder||"")}">${escapeText(value)}</textarea>`:`<input ${field.type==="date"?`type="date" min="${todayValue()}"`:""} maxlength="180" aria-label="${escapeText(field.label)}" aria-required="${!field.optional}" data-answer-input="${field.key}" value="${escapeText(value)}" placeholder="${escapeText(field.placeholder||"")}">`;
+    const tag=field.type==="textarea"?`<textarea rows="3" maxlength="600" aria-label="${escapeText(field.label)}" aria-required="${!field.optional}" data-answer-input="${field.key}" placeholder="${escapeText(field.placeholder||"")}">${escapeText(value)}</textarea>`:`<input ${field.type==="date"?`type="date"`:field.type==="number"?`type="number" step="1"`:field.type==="url"?`type="url"`:""} maxlength="180" aria-label="${escapeText(field.label)}" aria-required="${!field.optional}" data-answer-input="${field.key}" value="${escapeText(value)}" placeholder="${escapeText(field.placeholder||"")}">`;
     return `<label class="config-field config-text" data-entry><small>${escapeText(field.label)}${optional}</small>${tag}</label>`;
   }
 
   function detailFieldIcon(field){
     const key=field?.key||"";
+    if(field?.type==="reference")return "ph-image-square";
+    if(field?.type==="url")return "ph-link";
+    if(field?.type==="color")return "ph-palette";
+    if(field?.type==="date")return "ph-calendar-blank";
+    if(field?.type==="measurement")return "ph-ruler";
     if(/fecha|plazo/i.test(key))return "ph-calendar-blank";
     if(/medida|ancho|altura|escala|tolerancia/i.test(key))return "ph-ruler";
     if(/color|acabado|estilo/i.test(key))return "ph-palette";
@@ -652,6 +665,8 @@
 
   function detailFieldMorph(field){
     const key=field?.key||"";
+    if(field?.type==="measurement")return "detail-measure";
+    if(field?.type==="date")return "detail-time";
     if(/medida|ancho|altura|escala|tolerancia/i.test(key))return "detail-measure";
     if(/fecha|plazo/i.test(key))return "detail-time";
     return "detail-choice";
@@ -659,6 +674,8 @@
 
   function detailFieldHint(field){
     if(field.optional)return "Podés dejarlo para definirlo juntos.";
+    if(field.type==="reference")return "Podés subir una foto, logo o archivo que nos ayude a prepararlo.";
+    if(field.type==="date")return "Indicá la fecha que debe llevar el producto; puede ser una fecha pasada.";
     if(field.type==="multi")return "Podés marcar más de una opción.";
     if(field.type==="date")return "Elegí la fecha prevista para poder revisar el plazo.";
     if(field.type==="text"||field.type==="textarea")return "Escribí lo que sepas. Si falta algo, lo terminamos de definir juntos.";
@@ -678,9 +695,13 @@
     if(step===0)return state.productRequestMode?"":"Elegí cómo querés pedir este producto";
     if(step<=profile.fields.length){
       const field=profile.fields[step-1],value=state.answers[field.key];
+      if(field.type==="reference")return !field.optional&&!state.files.length?"Subí una imagen o referencia para continuar":"";
       if(!field.optional&&!hasValue(value))return `Completá “${field.label}” para continuar`;
       if(field.key==="detalle_incluido"&&requiresProductUrl(state.current)&&value&&!validWebUrl(value))return "Ingresá un enlace válido que empiece con https://";
-      if(field.type==="date"&&value&&!validFutureDate(value))return "Elegí una fecha válida desde hoy";
+      if(field.type==="url"&&value&&!validWebUrl(value))return "Ingresá un enlace válido que empiece con https://";
+      if(field.type==="date"&&value&&!validCatalogDate(value))return "Ingresá una fecha válida";
+      if(field.type==="number"&&value&&!Number.isInteger(Number(value)))return "Ingresá un número entero";
+      if(field.type==="measurement"&&value&&!hasMeasurementUnit(value))return "Agregá la unidad de medida, por ejemplo mm o cm";
       if(["medida","medidas","ancho","altura"].includes(field.key)&&value&&!hasMeasurementUnit(value))return "Agregá la unidad de medida, por ejemplo mm o cm";
       return "";
     }
@@ -696,7 +717,8 @@
     const step=state.detailStep;
     if(step===0){
       const mode=state.productRequestMode;
-      return `<div class="detail-question-head"><span class="detail-question-icon" data-morph="detail-choice"><i class="ph ph-hand-pointing" aria-hidden="true"></i></span><div><small>ESTE PRODUCTO</small><h3>¿Cómo lo querés?</h3><p>Podés pedirlo tal como está descrito o contarnos una idea distinta a partir de este producto.</p></div></div><div class="product-request-modes" role="group" aria-label="Cómo pedir ${escapeText(state.current.name)}"><button type="button" data-product-request-mode="as_shown" class="${mode==="as_shown"?"active":""}" aria-pressed="${mode==="as_shown"}"><i class="ph ph-check-circle"></i><span><b>Como se muestra</b><small>${includedProductPrompt(state.current)?"Después te pedimos el dato que lleva este producto, como nombre, letras o enlace.":"Pedilo con las características de esta ficha."}</small></span></button><button type="button" data-product-request-mode="customize" class="${mode==="customize"?"active":""}" aria-pressed="${mode==="customize"}"><i class="ph ph-pencil-simple"></i><span><b>Quiero personalizarlo</b><small>Contanos tu idea, aunque quieras cambiar el producto por completo.</small></span></button></div>`;
+      const configured=configuredProductFields(state.current),hasQuestions=configured===null?Boolean(includedProductPrompt(state.current)):configured.length>0;
+      return `<div class="detail-question-head"><span class="detail-question-icon" data-morph="detail-choice"><i class="ph ph-hand-pointing" aria-hidden="true"></i></span><div><small>ESTE PRODUCTO</small><h3>¿Cómo lo querés?</h3><p>Podés pedirlo tal como está descrito o contarnos una idea distinta a partir de este producto.</p></div></div><div class="product-request-modes" role="group" aria-label="Cómo pedir ${escapeText(state.current.name)}"><button type="button" data-product-request-mode="as_shown" class="${mode==="as_shown"?"active":""}" aria-pressed="${mode==="as_shown"}"><i class="ph ph-check-circle"></i><span><b>Como se muestra</b><small>${hasQuestions?"Después te pedimos los datos específicos de este producto.":"Pedilo con las características de esta ficha."}</small></span></button><button type="button" data-product-request-mode="customize" class="${mode==="customize"?"active":""}" aria-pressed="${mode==="customize"}"><i class="ph ph-pencil-simple"></i><span><b>Quiero personalizarlo</b><small>Contanos tu idea, aunque quieras cambiar el producto por completo.</small></span></button></div>`;
     }
     if(step<=profile.fields.length){
       const field=profile.fields[step-1];
@@ -709,7 +731,7 @@
     if(step===profile.fields.length+2){
       return `<div class="detail-question-head"><span class="detail-question-icon" data-morph="detail-time"><i class="ph ph-clock" aria-hidden="true"></i></span><div><small>PLAZO</small><h3>¿Para cuándo lo necesitás?</h3><p>La fecha nos ayuda a recomendarte el mejor camino.</p></div></div><div class="config-field detail-single-field" role="group" aria-labelledby="deadline-label"><small id="deadline-label">Elegí una opción</small><div class="config-options deadline-options" data-option="deadline">${["Sin apuro","Fecha definida","Lo antes posible"].map(value=>`<button class="${state.deadline===value?"active":""}" aria-pressed="${state.deadline===value}" data-value="${value}">${value}</button>`).join("")}</div>${state.deadline==="Fecha definida"?`<label class="conditional-input"><span>Fecha necesaria</span><input id="deadline-date" type="date" min="${todayValue()}" aria-required="true" value="${escapeText(state.deadlineDate)}"></label>`:""}</div>`;
     }
-    const answered=profile.fields.filter(field=>hasValue(state.answers[field.key])).length;
+    const answered=profile.fields.filter(field=>field.type==="reference"?state.files.length:hasValue(state.answers[field.key])).length;
     return `<div class="detail-question-head detail-ready-head"><span class="detail-question-icon detail-file-icon" data-morph="detail-file"><i class="ph ph-paperclip" aria-hidden="true"></i></span><div><small>ÚLTIMO PASO</small><h3>Sumá una referencia si tenés</h3><p>No es obligatoria. Una foto, logo o boceto puede ayudarnos a entender mejor la idea.</p></div></div><div class="detail-ready-summary"><span><i class="ph ph-check-circle"></i><b>${answered}</b> decisiones guardadas</span><span><i class="ph ph-stack"></i><b>${selectedQuantity(state.quantity,state.customQuantity)}</b> unidades</span><span><i class="ph ph-calendar-blank"></i>${escapeText(deadlineText(state.deadline,state.deadlineDate))}</span></div>${referencePreview()}<div class="detail-actions detail-final-actions"><label class="reference-upload"><input id="reference" type="file" multiple accept="${profile.fileAccept||".png,.jpg,.jpeg,.svg,.pdf"}"><i class="ph ph-paperclip" aria-hidden="true"></i><span><b>${profile.fileLabel}</b><small>${state.files.length?`${state.files.length} archivo${state.files.length===1?"":"s"} seleccionado${state.files.length===1?"":"s"}`:`${profile.fileHelp} · máx. ${MAX_FILES}`}</small></span></label><button class="primary" id="add-request"><i class="ph ph-bag" aria-hidden="true"></i> ${state.editingUid?"Actualizar solicitud":"Sumar a mi solicitud"}</button></div><p class="upload-disclosure"><i class="ph ph-info"></i> En celulares compatibles, las referencias se preparan para compartirlas junto con el resumen por WhatsApp.</p>`;
   }
 
@@ -903,19 +925,22 @@
   }
 
   async function addCurrent(){
-    const profile=productRequestProfile(state.current);const missing=profile.fields.filter(field=>!field.optional&&!hasValue(state.answers[field.key]));
+    const profile=productRequestProfile(state.current);const missing=profile.fields.filter(field=>!field.optional&&!(field.type==="reference"?state.files.length:hasValue(state.answers[field.key])));
     if(!state.productRequestMode)missing.unshift({key:"productRequestMode",label:"Cómo querés el producto"});
     const quantity=selectedQuantity(state.quantity,state.customQuantity);if(!validProductQuantity(state.quantity,state.customQuantity,state.current))missing.push({key:"quantity",label:`Cantidad mínima: ${minimumQuantity(state.current)} unidades`});
     if(!state.deadline)missing.push({key:"deadline",label:"Plazo"});else if(state.deadline==="Fecha definida"&&!validFutureDate(state.deadlineDate))missing.push({key:"deadline",label:"Fecha válida desde hoy"});
     if(state.productRequestMode==="as_shown"&&requiresProductUrl(state.current)&&state.answers.detalle_incluido&&!validWebUrl(state.answers.detalle_incluido))missing.push({key:"detalle_incluido",label:"Enlace QR válido (https://…)"});
-    profile.fields.filter(field=>field.type==="date"&&hasValue(state.answers[field.key])&&!validFutureDate(state.answers[field.key])).forEach(field=>missing.push({key:field.key,label:`${field.label} válida desde hoy`}));
+    profile.fields.filter(field=>field.type==="date"&&hasValue(state.answers[field.key])&&!validCatalogDate(state.answers[field.key])).forEach(field=>missing.push({key:field.key,label:`${field.label}: fecha válida`}));
+    profile.fields.filter(field=>field.type==="url"&&hasValue(state.answers[field.key])&&!validWebUrl(state.answers[field.key])).forEach(field=>missing.push({key:field.key,label:`${field.label}: enlace válido`}));
+    profile.fields.filter(field=>field.type==="measurement"&&hasValue(state.answers[field.key])&&!hasMeasurementUnit(state.answers[field.key])).forEach(field=>missing.push({key:field.key,label:`${field.label}: agregá mm o cm`}));
+    profile.fields.filter(field=>field.type==="number"&&hasValue(state.answers[field.key])&&!Number.isInteger(Number(state.answers[field.key]))).forEach(field=>missing.push({key:field.key,label:`${field.label}: número entero`}));
     ["medida","medidas","ancho","altura"].forEach(key=>{if(state.answers[key]&&!hasMeasurementUnit(state.answers[key]))missing.push({key,label:"Medidas con unidad (mm o cm)"});});
     if(!state.editingUid&&state.items.length>=MAX_ITEMS){notify(`Máximo ${MAX_ITEMS} ideas por consulta. Enviá esta solicitud y empezá otra.`);return;}
     const uniqueMissing=missing.filter((item,index,list)=>list.findIndex(entry=>entry.key===item.key)===index);
     if(uniqueMissing.length){const alert=view.querySelector("#form-alert");if(alert){alert.hidden=false;alert.setAttribute("role","alert");alert.innerHTML=`<i class="ph ph-warning-circle"></i><span><b>Revisá ${uniqueMissing.length} ${uniqueMissing.length===1?"dato":"datos"}</b>${uniqueMissing.map(item=>escapeText(item.label)).join(" · ")}</span>`;}view.querySelectorAll(".config-field").forEach(field=>{field.classList.remove("invalid");field.removeAttribute("aria-invalid");});const fieldFor=key=>key==="quantity"?view.querySelector("[data-option='quantity']")?.closest(".config-field"):key==="deadline"?view.querySelector("[data-option='deadline']")?.closest(".config-field"):view.querySelector(`[data-answer='${key}']`)?.closest(".config-field")||view.querySelector(`[data-answer-multi='${key}']`)?.closest(".config-field")||view.querySelector(`[data-answer-input='${key}']`)?.closest(".config-field");uniqueMissing.forEach(item=>{const field=fieldFor(item.key);field?.classList.add("invalid");field?.setAttribute("aria-invalid","true");});const firstField=fieldFor(uniqueMissing[0].key)||alert;firstField?.scrollIntoView({behavior:"smooth",block:"center"});firstField?.querySelector?.("button,input,textarea")?.focus();notify(`Revisá ${uniqueMissing.length} ${uniqueMissing.length===1?"dato pendiente":"datos pendientes"}`);return;}
     const source=document.querySelector("#product-detail-image");
     const uid=state.editingUid||`${Date.now()}-${Math.random()}`;
-    const answers={modalidad:state.productRequestMode==="customize"?"Personalizar este producto":"Como se muestra",...Object.fromEntries(profile.fields.map(field=>[field.key,state.answers[field.key]]))};
+    const answers={modalidad:state.productRequestMode==="customize"?"Personalizar este producto":"Como se muestra",...Object.fromEntries(profile.fields.map(field=>[field.key,field.type==="reference"?state.file:state.answers[field.key]]))};
     const answerLabels={modalidad:"Cómo lo quiere",...Object.fromEntries(profile.fields.map(field=>[field.key,field.label]))};
     const item={...state.current,uid,image:imageFor(state.current),quantity,size:"Según la ficha",colors:"Según la ficha",design:state.productRequestMode==="customize"?"Cambios solicitados":"Como se muestra",deadline:state.deadline,deadlineDate:state.deadlineDate,file:state.file,files:[...state.files],fileObjects:[...state.fileObjects],referencePreview:state.filePreview,referencePreviews:[...state.filePreviews],profileKey:"catalog_request",answers,answerLabels};
     await travelProduct({source,destinationSelector:`[data-request-image='${item.uid}']`,src:item.image,variant:"request",update:()=>{const index=state.items.findIndex(existing=>existing.uid===state.editingUid);if(index>=0)state.items[index]=item;else state.items.push(item);state.editingUid="";persistRequest();state.route="request";navigateToRoute("request",{renderRoute:false});render({entry:false});}});
@@ -993,7 +1018,7 @@
   }
 
   function publicRequestPayload(){
-    const cleanItems=state.items.map(item=>({id:item.id,name:item.name,group:item.group,quantity:item.quantity,deadline:deadlineText(item.deadline,item.deadlineDate),idea:item.idea||null,answers:item.answers||{},reference_files:item.files||[]}));
+    const cleanItems=state.items.map(item=>({id:item.id,name:item.name,group:item.group,quantity:item.quantity,deadline:deadlineText(item.deadline,item.deadlineDate),idea:item.idea||null,answers:item.answers||{},answer_labels:item.answerLabels||{},reference_files:item.files||[]}));
     const delivery={method:state.customerDeliveryMethod,status:"pending",department:state.customerDeliveryMethod==="shipping"?state.customerDepartment||null:null,city:state.customerDeliveryMethod==="shipping"?state.customerCity||null:null,address:state.customerDeliveryMethod==="shipping"?state.customerAddress||null:null,notes:state.customerDeliveryMethod==="shipping"?state.customerDeliveryNotes||null:null};
     return {p_customer_name:state.customerName,p_customer_company:state.customerContext||null,p_customer_phone:state.customerPhone||null,p_customer_email:state.customerEmail||null,p_title:state.items.length===1?state.items[0].name:`Solicitud de ${state.items.length} productos`,p_category:[...new Set(state.items.map(item=>item.group.split(" · ")[0]))].join(" · "),p_quantity:state.items.reduce((sum,item)=>sum+(parseInt(item.quantity,10)||1),0),p_deadline:[...new Set(state.items.map(item=>deadlineText(item.deadline,item.deadlineDate)))].join(" · "),p_notes:state.customerMessage||null,p_configuration:{version:2,items:cleanItems,has_references:cleanItems.some(item=>item.reference_files.length),delivery}};
   }
