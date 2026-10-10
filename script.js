@@ -140,7 +140,7 @@
     try{
       const rows=await supabaseRpc("get_public_catalog");
       if(!Array.isArray(rows)||(!rows.length&&!remoteCatalogSignature))return;
-      const nextProducts=rows.map(row=>({id:row.id,name:row.name,group:row.category,icon:row.settings?.icon||"ph-cube",detail:row.description||"Lo preparamos a medida para vos.",requestPrompt:row.settings?.request_prompt||"",orderQuestions:row.settings?.order_questions,galleryImages:(Array.isArray(row.settings?.gallery_images)?row.settings.gallery_images:[]).slice(0,2).map(image=>publicStorageUrl(typeof image==="string"?image:image?.path)).filter(Boolean),minQuantity:row.min_quantity||1,featured:Boolean(row.featured),publicationStatus:row.publication_status||"published",imageUrl:publicStorageUrl(row.image_path),imageAlt:row.image_alt||row.name,badge:row.badge||"",imagePositionX:Number(row.settings?.image_position_x??50),imagePositionY:Number(row.settings?.image_position_y??50),imageZoom:Number(row.settings?.image_zoom??1),imageFit:row.settings?.image_fit==="contain"?"contain":"cover",imageBackground:/^#[0-9a-f]{6}$/i.test(row.settings?.image_background||"")?row.settings.image_background:"#d9dcdf",source:"supabase"}));
+      const nextProducts=rows.map(row=>({id:row.id,name:row.name,group:row.category,icon:row.settings?.icon||"ph-cube",detail:row.description||"Lo preparamos a medida para vos.",requestPrompt:row.settings?.request_prompt||"",orderQuestions:row.settings?.order_questions,galleryImages:(Array.isArray(row.settings?.gallery_images)?row.settings.gallery_images:[]).slice(0,2).map(image=>publicStorageUrl(typeof image==="string"?image:image?.path)).filter(Boolean),minQuantity:row.min_quantity||1,featured:Boolean(row.featured),sortOrder:Number(row.sort_order||0),featuredOrder:Number(row.settings?.featured_order??row.sort_order??0),publicationStatus:row.publication_status||"published",imageUrl:publicStorageUrl(row.image_path),imageAlt:row.image_alt||row.name,badge:row.badge||"",imagePositionX:Number(row.settings?.image_position_x??50),imagePositionY:Number(row.settings?.image_position_y??50),imageZoom:Number(row.settings?.image_zoom??1),imageFit:row.settings?.image_fit==="contain"?"contain":"cover",imageBackground:/^#[0-9a-f]{6}$/i.test(row.settings?.image_background||"")?row.settings.image_background:"#d9dcdf",source:"supabase"}));
       const nextSignature=JSON.stringify(nextProducts);
       if(nextSignature===remoteCatalogSignature)return;
       const previous=state.current?.id;
@@ -550,7 +550,7 @@
 
   function filteredProducts(limit){
     const category=categories.find(item=>item.name===state.category);
-    let list=state.route==="home"&&!state.search&&state.category==="Todos"?(products.some(item=>item.source==="supabase")?products.filter(item=>item.featured):featured.map(id=>products.find(p=>p.id===id)).filter(Boolean)):products;
+    let list=state.route==="home"&&!state.search&&state.category==="Todos"?(products.some(item=>item.source==="supabase")?products.filter(item=>item.featured).sort((a,b)=>a.featuredOrder-b.featuredOrder||a.sortOrder-b.sortOrder||a.name.localeCompare(b.name,"es")):featured.map(id=>products.find(p=>p.id===id)).filter(Boolean)):products;
     if(category?.matches?.length) list=list.filter(product=>category.matches.some(match=>product.group.includes(match)));
     if(state.search){const query=state.search.toLocaleLowerCase("es");list=list.filter(product=>`${product.name} ${product.group} ${product.detail}`.toLocaleLowerCase("es").includes(query));}
     return limit?list.slice(0,limit):list;
