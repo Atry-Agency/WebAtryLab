@@ -2,7 +2,7 @@
   "private": true,
   "scripts": {
     "build:icons": "esbuild morph-icons.source.js --bundle --format=iife --minify --outfile=recursos/librerias/morphicons.bundle.js",
-    "test": "node --test catalog-search.test.js"
+    "test": "node --test catalog-search.test.js site-theme.test.js"
   },
   "dependencies": {
     "morphicons": "1.7.1"

@@ -132,6 +132,20 @@
     {image:"recursos/imagenes/productos/souvenirs-atry.png",rating:4.5,quote:"Los souvenirs del bautismo quedaron delicados y tal como los habíamos pensado. Además, estuvieron prontos para la fecha acordada.",client:"Bautismo familiar",product:"Souvenirs para bautismo"}
   ]};
   let experiences=defaultExperiences,experiencesSignature="";
+  let siteThemeConfig=window.ATRYSiteTheme.normalizeTheme(),activeSiteTheme="original",siteThemeSignature="";
+  function refreshSiteTheme(){
+    const next=window.ATRYSiteTheme.effectiveTheme(siteThemeConfig);
+    if(next===activeSiteTheme)return false;
+    activeSiteTheme=next;
+    if(next==="original")delete document.documentElement.dataset.siteTheme;
+    else document.documentElement.dataset.siteTheme=next;
+    return true;
+  }
+  function seasonalFeatured(){
+    if(activeSiteTheme==="original")return [];
+    const ids=siteThemeConfig.campaigns[activeSiteTheme]?.featured_ids||[];
+    return ids.map(id=>products.find(product=>product.id===id)).filter(Boolean);
+  }
   let remoteCatalogSignature="",catalogSyncBusy=false,catalogRenderPending=false,catalogRealtimeChannel=null;
   function publicStorageUrl(path){return path&&supabaseConfig.url?`${supabaseConfig.url}/storage/v1/object/public/catalog-images/${String(path).split("/").map(encodeURIComponent).join("/")}`:"";}
   async function supabaseRpc(name,payload={}){
@@ -148,11 +162,18 @@
   async function loadRemoteExperiences(){
     try{
       const value=await supabaseRpc("get_public_experiences");
-      if(!value||!Array.isArray(value.cards))return;
-      const next={eyebrow:String(value.eyebrow||""),title:String(value.title||""),cards:value.cards.filter(card=>card&&typeof card==="object").map(card=>({image:experienceImageUrl(card.image),rating:Math.max(0,Math.min(5,Number(card.rating)||0)),quote:String(card.quote||""),client:String(card.client||""),product:String(card.product||"")}))};
-      const signature=JSON.stringify(next);if(signature===experiencesSignature)return;
-      experiences=next;experiencesSignature=signature;
-      if(state.route==="home"&&!view.querySelector("input:focus,textarea:focus,select:focus"))render({scroll:false,entry:false});
+      if(!value||typeof value!=="object")return;
+      const nextTheme=window.ATRYSiteTheme.normalizeTheme(value.site_theme),themeSignature=JSON.stringify(nextTheme);
+      const changedTheme=themeSignature!==siteThemeSignature;
+      if(changedTheme){siteThemeConfig=nextTheme;siteThemeSignature=themeSignature;}
+      const changedAppearance=refreshSiteTheme();
+      let changedExperiences=false;
+      if(Array.isArray(value.cards)){
+        const next={eyebrow:String(value.eyebrow||""),title:String(value.title||""),cards:value.cards.filter(card=>card&&typeof card==="object").map(card=>({image:experienceImageUrl(card.image),rating:Math.max(0,Math.min(5,Number(card.rating)||0)),quote:String(card.quote||""),client:String(card.client||""),product:String(card.product||"")}))};
+        const signature=JSON.stringify(next);
+        if(signature!==experiencesSignature){experiences=next;experiencesSignature=signature;changedExperiences=true;}
+      }
+      if((changedTheme||changedAppearance||changedExperiences)&&["home","catalog"].includes(state.route)&&!view.querySelector("input:focus,textarea:focus,select:focus"))render({scroll:false,entry:false});
     }catch(error){console.warn("Experiencias remotas no disponibles; se mantiene la versión local.",error);}
   }
   async function loadRemoteCatalog(){
@@ -180,6 +201,7 @@
     }
     window.setInterval(()=>{if(!document.hidden)loadRemoteCatalog();},5000);
     window.setInterval(()=>{if(!document.hidden)loadRemoteExperiences();},20000);
+    window.setInterval(()=>{if(refreshSiteTheme()&&["home","catalog"].includes(state.route)&&!view.querySelector("input:focus,textarea:focus,select:focus"))render({scroll:false,entry:false});},30000);
     window.addEventListener("focus",loadRemoteCatalog);
     window.addEventListener("focus",loadRemoteExperiences);
     document.addEventListener("visibilitychange",()=>{if(!document.hidden)loadRemoteCatalog();});
@@ -573,7 +595,7 @@
 
   function filteredProducts(limit){
     const category=categories.find(item=>item.name===state.category);
-    let list=state.route==="home"&&!state.search&&state.category==="Todos"?(products.some(item=>item.source==="supabase")?products.filter(item=>item.featured).sort((a,b)=>a.featuredOrder-b.featuredOrder||a.sortOrder-b.sortOrder||a.name.localeCompare(b.name,"es")):featured.map(id=>products.find(p=>p.id===id)).filter(Boolean)):products;
+    let list=state.route==="home"&&!state.search&&state.category==="Todos"?(seasonalFeatured().length?seasonalFeatured():products.some(item=>item.source==="supabase")?products.filter(item=>item.featured).sort((a,b)=>a.featuredOrder-b.featuredOrder||a.sortOrder-b.sortOrder||a.name.localeCompare(b.name,"es")):featured.map(id=>products.find(p=>p.id===id)).filter(Boolean)):products;
     if(category?.matches?.length) list=list.filter(product=>category.matches.some(match=>product.group.includes(match)));
     const results=window.ATRYCatalogSearch.searchProducts(list,state.search);
     return {...results,items:limit?results.items.slice(0,limit):results.items};
@@ -581,13 +603,16 @@
 
   function home(catalog=false){
     const {items:list}=filteredProducts(catalog?undefined:8);
+    const campaign=activeSiteTheme==="original"?{}:siteThemeConfig.campaigns[activeSiteTheme]||{};
+    const seasonalNames={valentines:"San Valentín",halloween:"Halloween",christmas:"Navidad"};
     const reviewRating=rating=>`<span class="review-rating" aria-label="${String(rating).replace('.',',')} de 5 estrellas"><span class="review-stars" aria-hidden="true">${Array.from({length:5},(_,index)=>index+1<=Math.floor(rating)?`<i class="ph ph-star"></i>`:index<rating?`<i class="ph ph-star-half"></i>`:`<i class="ph ph-star review-star-empty"></i>`).join("")}</span><b>${String(rating).replace('.',',')}</b></span>`;
     const experiencesMarkup=experiences.cards.length?`<section class="reviews-section" data-entry><div class="reviews-head"><small>${escapeText(experiences.eyebrow)}</small><h2>${escapeText(experiences.title)}</h2></div><div class="reviews-window"><div class="reviews-track ${experiences.cards.length===1?"single":""}" style="--review-duration:${Math.max(24,experiences.cards.length*6)}s">${experiences.cards.map(card=>`<article class="review-card">${card.image?`<img src="${escapeText(card.image)}" alt="${escapeText(card.product)}">`:`<div class="review-image-empty"><i class="ph ph-image-square" aria-hidden="true"></i></div>`}<div>${reviewRating(card.rating)}<blockquote>“${escapeText(card.quote)}”</blockquote><strong>${escapeText(card.client)}</strong><small>${escapeText(card.product)}</small></div></article>`).join("")}</div></div></section>`:"";
     return `<section class="home-hero">
       <div class="hero-copy" data-entry>
         <div class="location-line"><span class="location-icon"><i class="ph ph-map-pin"></i></span><span><small>Diseñamos y producimos en</small><strong>Montevideo, Uruguay</strong></span></div>
-        <h1>Lo imaginás.<br><span>Nosotros lo fabricamos.</span></h1>
-        <p class="home-service-line"><b>Diseño y fabricación 3D personalizada.</b><br>Desde una pieza única hasta producciones para marcas, negocios y eventos.</p>
+        ${activeSiteTheme!=="original"?`<span class="seasonal-hero-chip"><i class="ph ph-sparkle" aria-hidden="true"></i>Temporada ${seasonalNames[activeSiteTheme]}</span>`:""}
+        <h1>${escapeText(campaign.line_1||"Lo imaginás.")}<br><span>${escapeText(campaign.line_2||"Nosotros lo fabricamos.")}</span></h1>
+        <p class="home-service-line">${campaign.description?escapeText(campaign.description):"<b>Diseño y fabricación 3D personalizada.</b><br>Desde una pieza única hasta producciones para marcas, negocios y eventos."}</p>
         <div class="search-box" role="search" data-entry><i class="ph ph-magnifying-glass" aria-hidden="true"></i><input id="search" type="search" enterkeyhint="search" value="${escapeText(state.search)}" aria-label="Buscar productos" placeholder="Buscar llaveros, trofeos, porta QR, figuras..."><button type="button" data-search-submit aria-label="Buscar en el catálogo"><i class="ph ph-arrow-right" aria-hidden="true"></i></button></div>
       </div>
       <section class="fabrication-studio" aria-label="Animación 3D de una impresora fabricando el isotipo de ATRY" data-printer-studio data-entry>
@@ -619,7 +644,7 @@
     const visible=list.slice(0,state.catalogLimit);
     const categoryLabel=state.category==="Todos"?"Todas las ideas":state.category;
     const heading=state.search?`Resultados para “${escapeText(state.search)}”`:state.category==="Todos"?"Todo lo que podemos hacer.":`${escapeText(categoryLabel)} para explorar.`;
-    const popular=["llaveros","porta-qr","souvenirs","trofeos"].map(id=>products.find(product=>product.id===id)).filter(Boolean);
+    const popular=seasonalFeatured().length?seasonalFeatured().slice(0,4):["llaveros","porta-qr","souvenirs","trofeos"].map(id=>products.find(product=>product.id===id)).filter(Boolean);
     const intents=[
       ["Personalizados","MARCAS","Para mi marca","Logos, regalos y piezas con tu identidad.","catalog-brand","ph-tag"],
       ["Eventos","EVENTOS","Para un evento","Recuerdos, carteles y premios.","catalog-event","ph-confetti"],
