@@ -907,3 +907,11 @@ body.confirm-open{overflow:hidden}.whatsapp-confirm-backdrop{position:fixed;z-in
   .detail-gallery-stage{border-radius:15px}
   .detail-gallery-stage figcaption{min-height:39px;padding:9px 10px;font-size:8px}
 }
+
+/* Búsqueda: control táctil claro, sin zoom automático de Safari al enfocar. */
+.search-box input,.catalog-search input{flex:1;min-width:0;width:auto}
+.search-box>button,.catalog-search>button{width:38px;height:38px;flex:0 0 38px;display:grid;place-items:center;border:0;border-radius:12px;color:#fff;background:#0d5767;font-size:18px;cursor:pointer;transition:background .2s,transform .2s}
+.search-box>button:hover,.catalog-search>button:hover{background:#087f98;transform:translateX(2px)}
+.search-box>button:focus-visible,.catalog-search>button:focus-visible{outline:3px solid #48cce2;outline-offset:2px}
+.search-feedback{max-width:610px;margin:9px 0 0;color:#607a82;font-size:12px;line-height:1.5}
+@media(max-width:767px){.search-box input,.catalog-search input{font-size:16px!important}.search-box,.catalog-search{padding-right:10px}.search-box>button,.catalog-search>button{width:40px;height:40px;flex-basis:40px}}

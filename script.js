@@ -6,7 +6,6 @@
   const toast = document.querySelector("#toast");
   const transitionLayer = document.querySelector("#transition-layer");
   let isTransitioning = false;
-  let searchTimer = 0;
   const STORAGE_REQUEST = "atrylab-request-v1";
   const STORAGE_FAVORITES = "atrylab-favorites-v1";
 
@@ -576,12 +575,12 @@
     const category=categories.find(item=>item.name===state.category);
     let list=state.route==="home"&&!state.search&&state.category==="Todos"?(products.some(item=>item.source==="supabase")?products.filter(item=>item.featured).sort((a,b)=>a.featuredOrder-b.featuredOrder||a.sortOrder-b.sortOrder||a.name.localeCompare(b.name,"es")):featured.map(id=>products.find(p=>p.id===id)).filter(Boolean)):products;
     if(category?.matches?.length) list=list.filter(product=>category.matches.some(match=>product.group.includes(match)));
-    if(state.search){const query=state.search.toLocaleLowerCase("es");list=list.filter(product=>`${product.name} ${product.group} ${product.detail}`.toLocaleLowerCase("es").includes(query));}
-    return limit?list.slice(0,limit):list;
+    const results=window.ATRYCatalogSearch.searchProducts(list,state.search);
+    return {...results,items:limit?results.items.slice(0,limit):results.items};
   }
 
   function home(catalog=false){
-    const list=filteredProducts(catalog?undefined:8);
+    const {items:list}=filteredProducts(catalog?undefined:8);
     const reviewRating=rating=>`<span class="review-rating" aria-label="${String(rating).replace('.',',')} de 5 estrellas"><span class="review-stars" aria-hidden="true">${Array.from({length:5},(_,index)=>index+1<=Math.floor(rating)?`<i class="ph ph-star"></i>`:index<rating?`<i class="ph ph-star-half"></i>`:`<i class="ph ph-star review-star-empty"></i>`).join("")}</span><b>${String(rating).replace('.',',')}</b></span>`;
     const experiencesMarkup=experiences.cards.length?`<section class="reviews-section" data-entry><div class="reviews-head"><small>${escapeText(experiences.eyebrow)}</small><h2>${escapeText(experiences.title)}</h2></div><div class="reviews-window"><div class="reviews-track ${experiences.cards.length===1?"single":""}" style="--review-duration:${Math.max(24,experiences.cards.length*6)}s">${experiences.cards.map(card=>`<article class="review-card">${card.image?`<img src="${escapeText(card.image)}" alt="${escapeText(card.product)}">`:`<div class="review-image-empty"><i class="ph ph-image-square" aria-hidden="true"></i></div>`}<div>${reviewRating(card.rating)}<blockquote>“${escapeText(card.quote)}”</blockquote><strong>${escapeText(card.client)}</strong><small>${escapeText(card.product)}</small></div></article>`).join("")}</div></div></section>`:"";
     return `<section class="home-hero">
@@ -589,7 +588,7 @@
         <div class="location-line"><span class="location-icon"><i class="ph ph-map-pin"></i></span><span><small>Diseñamos y producimos en</small><strong>Montevideo, Uruguay</strong></span></div>
         <h1>Lo imaginás.<br><span>Nosotros lo fabricamos.</span></h1>
         <p class="home-service-line"><b>Diseño y fabricación 3D personalizada.</b><br>Desde una pieza única hasta producciones para marcas, negocios y eventos.</p>
-        <label class="search-box" data-entry><i class="ph ph-magnifying-glass" aria-hidden="true"></i><input id="search" type="search" value="${state.search}" aria-label="Buscar productos" placeholder="Buscar llaveros, trofeos, porta QR, figuras..."></label>
+        <div class="search-box" role="search" data-entry><i class="ph ph-magnifying-glass" aria-hidden="true"></i><input id="search" type="search" enterkeyhint="search" value="${escapeText(state.search)}" aria-label="Buscar productos" placeholder="Buscar llaveros, trofeos, porta QR, figuras..."><button type="button" data-search-submit aria-label="Buscar en el catálogo"><i class="ph ph-arrow-right" aria-hidden="true"></i></button></div>
       </div>
       <section class="fabrication-studio" aria-label="Animación 3D de una impresora fabricando el isotipo de ATRY" data-printer-studio data-entry>
         <div class="studio-viewport" data-printer-viewport><div class="studio-fallback"><img src="recursos/atry-isotipo.png" alt="Isotipo ATRY"><span>Ideas que toman forma.</span></div></div>
@@ -603,7 +602,7 @@
 
     <section class="menu-zone">
       <div class="category-strip" data-entry>${categories.map(category=>`<button class="category ${state.category===category.name?"active":""}" data-category="${category.name}"><span><i class="ph ${category.icon}"></i></span>${category.name}</button>`).join("")}</div>
-      <div class="catalog-heading" data-entry><div><small>${catalog?"CATÁLOGO COMPLETO":"IDEAS PARA EMPEZAR"}</small><h2>${state.search?`Resultados para “${state.search}”`:state.category==="Todos"?"¿Qué podemos fabricar?":state.category}</h2></div><span>${state.search?`${list.length} resultados`:"Selección destacada"}</span></div>
+      <div class="catalog-heading" data-entry><div><small>${catalog?"CATÁLOGO COMPLETO":"IDEAS PARA EMPEZAR"}</small><h2>${state.search?`Resultados para “${escapeText(state.search)}”`:state.category==="Todos"?"¿Qué podemos fabricar?":escapeText(state.category)}</h2></div><span>${state.search?`${list.length} ${list.length===1?"resultado":"resultados"}`:"Selección destacada"}</span></div>
       <div class="product-grid">${list.length?list.map(productCard).join(""):`<div class="empty-search" data-entry><i class="ph ph-magnifying-glass"></i><h3>No encontramos esa palabra</h3><p>Igual podemos diseñarlo desde cero.</p><button data-route="builder">Contar mi idea</button></div>`}</div>
       ${!catalog&&!state.search?`<button class="see-all" data-route="catalog" data-entry>Explorar todo el catálogo <i class="ph ph-arrow-right"></i></button>`:""}
     </section>
@@ -616,7 +615,7 @@
   }
 
   function catalog(){
-    const list=filteredProducts();
+    const {items:list,approximate}=filteredProducts();
     const visible=list.slice(0,state.catalogLimit);
     const categoryLabel=state.category==="Todos"?"Todas las ideas":state.category;
     const heading=state.search?`Resultados para “${escapeText(state.search)}”`:state.category==="Todos"?"Todo lo que podemos hacer.":`${escapeText(categoryLabel)} para explorar.`;
@@ -641,10 +640,10 @@
       ${!state.search&&state.category==="Todos"?`<section class="catalog-popular"><div class="catalog-section-title" data-entry><small>LOS QUE MÁS NOS PIDEN</small><h2>Cuatro buenos lugares para empezar.</h2></div><div class="catalog-popular-grid">${popular.map(product=>`<button class="catalog-popular-card" data-product="${product.id}" data-entry><img data-product-image src="${imageFor(product)}" alt="${product.name}" loading="lazy" decoding="async" style="${productImageStyle(product)}"><span><small>${product.group.split(" · ")[0]}</small><strong>${product.name}</strong><em>Ver producto <i class="ph ph-arrow-right" aria-hidden="true"></i></em></span></button>`).join("")}</div></section>`:""}
 
       <section class="catalog-results" id="catalog-results" aria-labelledby="catalog-results-title">
-        <div class="catalog-search-wrap" data-entry><label class="catalog-search"><i class="ph ph-magnifying-glass" aria-hidden="true"></i><input id="search" type="search" value="${escapeText(state.search)}" aria-label="Buscar en el catálogo" placeholder="¿Qué estás buscando?"></label><span><i class="ph ph-map-pin" aria-hidden="true"></i> Hecho en Montevideo</span></div>
+        <div class="catalog-search-wrap" data-entry><div class="catalog-search" role="search"><i class="ph ph-magnifying-glass" aria-hidden="true"></i><input id="search" type="search" enterkeyhint="search" value="${escapeText(state.search)}" aria-label="Buscar en el catálogo" placeholder="¿Qué estás buscando?"><button type="button" data-search-submit aria-label="Mostrar resultados"><i class="ph ph-arrow-right" aria-hidden="true"></i></button></div><span><i class="ph ph-map-pin" aria-hidden="true"></i> Hecho en Montevideo</span></div>
         <div class="catalog-filter-strip" data-entry>${categories.map(category=>`<button class="${state.category===category.name?"active":""}" data-category="${category.name}" aria-pressed="${state.category===category.name}"><i class="ph ${category.icon}" aria-hidden="true"></i>${category.name}</button>`).join("")}</div>
-        <div class="catalog-results-head" data-entry><div><small>PARA MIRAR CON CALMA</small><h2 id="catalog-results-title">${heading}</h2></div><span>Mostrando ${visible.length} de ${list.length}</span></div>
-        <div class="product-grid catalog-product-grid">${visible.length?visible.map(productCard).join(""):`<div class="catalog-empty" data-entry><i class="ph ph-sparkle" aria-hidden="true"></i><h3>No apareció, pero puede existir.</h3><p>Contanos qué necesitás y vemos cómo hacerlo.</p><button data-route="builder">Crear desde cero <i class="ph ph-arrow-right" aria-hidden="true"></i></button><button class="catalog-reset" data-catalog-reset>Limpiar búsqueda</button></div>`}</div>
+        <div class="catalog-results-head" data-entry><div><small>PARA MIRAR CON CALMA</small><h2 id="catalog-results-title">${heading}</h2>${approximate?`<p class="search-feedback">No encontramos “${escapeText(state.search)}” exactamente. Estas ideas se parecen a lo que buscás.</p>`:""}</div><span>Mostrando ${visible.length} de ${list.length}</span></div>
+        <div class="product-grid catalog-product-grid">${visible.length?visible.map(productCard).join(""):`<div class="catalog-empty" data-entry><i class="ph ph-sparkle" aria-hidden="true"></i><h3>${state.search?`No encontramos “${escapeText(state.search)}” en el catálogo.`:"Todavía no hay productos publicados."}</h3><p>Pero podemos diseñarlo para vos desde cero.</p><button data-route="builder">Contanos tu idea <i class="ph ph-arrow-right" aria-hidden="true"></i></button>${state.search?'<button class="catalog-reset" data-catalog-reset>Ver todo el catálogo</button>':""}</div>`}</div>
         ${visible.length<list.length?`<button class="catalog-more" data-catalog-more>Ver más ideas <span>${list.length-visible.length} restantes</span><i class="ph ph-arrow-down" aria-hidden="true"></i></button>`:""}
       </section>
 
@@ -1130,42 +1129,23 @@
     if(search){
       const isHeroSearch=state.route==="home";
       const commitSearch=()=>{
-        clearTimeout(searchTimer);
-        const value=search.value;
-        const searchViewportTop=search.closest(".catalog-search-wrap")?.getBoundingClientRect().top;
-        state.search=value;
-        if(value){state.route="catalog";state.category="Todos";navigateToRoute("catalog",{renderRoute:false});}
+        state.search=search.value.trim().slice(0,100);
+        search.blur();
+        state.route="catalog";
+        state.category="Todos";
+        navigateToRoute("catalog",{renderRoute:false});
         state.catalogLimit=12;
         render({scroll:false,entry:false});
         requestAnimationFrame(()=>{
-          const next=view.querySelector("#search");
-          if(!isHeroSearch&&Number.isFinite(searchViewportTop)){
-            const nextWrap=next?.closest(".catalog-search-wrap");
-            if(nextWrap){
-              const delta=nextWrap.getBoundingClientRect().top-searchViewportTop;
-              window.scrollBy({top:delta,left:0,behavior:"auto"});
-            }
-          }
-          next?.focus({preventScroll:true});
-          next?.setSelectionRange(next.value.length,next.value.length);
-          if(isHeroSearch){
-            const target=view.querySelector(".catalog-search-wrap");
-            if(target){
-              const header=document.querySelector(".desktop-header");
-              const headerVisible=header&&getComputedStyle(header).display!=="none";
-              const offset=(headerVisible?header.offsetHeight:0)+18;
-              const top=Math.max(0,window.scrollY+target.getBoundingClientRect().top-offset);
-              window.scrollTo({top,behavior:matchMedia("(prefers-reduced-motion: reduce)").matches?"auto":"smooth"});
-            }
+          const target=view.querySelector(".catalog-search-wrap");
+          if(target){
+            const top=Math.max(0,view.scrollTop+target.getBoundingClientRect().top-view.getBoundingClientRect().top-18);
+            view.scrollTo({top,behavior:isHeroSearch&&!matchMedia("(prefers-reduced-motion: reduce)").matches?"smooth":"auto"});
           }
         });
       };
-      search.addEventListener("input",()=>{
-        state.search=search.value;
-        if(isHeroSearch)return;
-        clearTimeout(searchTimer);
-        searchTimer=setTimeout(commitSearch,180);
-      });
+      view.querySelector("[data-search-submit]")?.addEventListener("click",commitSearch);
+      search.addEventListener("search",()=>{if(!search.value&&state.search)commitSearch();});
       search.addEventListener("keydown",event=>{
         if(event.key==="Enter"){
           event.preventDefault();
@@ -1210,7 +1190,7 @@
   }
 
   document.addEventListener("click",event=>{
-    const route=event.target.closest("[data-route]");if(route&&!view.contains(route)){state.editingUid="";const nextRoute=route.dataset.route;if(nextRoute==="catalog"){state.category="Todos";state.search="";state.catalogLimit=12;}navigateToRoute(nextRoute);}
+    const route=event.target.closest("[data-route]");if(route&&!view.contains(route)){state.editingUid="";const nextRoute=route.dataset.route;if(nextRoute==="catalog"||nextRoute==="home"){state.category="Todos";state.search="";state.catalogLimit=12;}navigateToRoute(nextRoute);}
     if(event.target.closest("[data-contact]")){state.editingUid="";state.search="";state.category="Todos";navigateToRoute("home");setTimeout(()=>view.querySelector("#contacto")?.scrollIntoView({behavior:"smooth",block:"start"}),60);}
     if(event.target.closest("[data-focus-search]")){navigateToRoute("catalog");setTimeout(()=>view.querySelector("#search")?.focus(),40);}
   });
