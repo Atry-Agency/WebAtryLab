@@ -140,7 +140,7 @@
     try{
       const rows=await supabaseRpc("get_public_catalog");
       if(!Array.isArray(rows)||(!rows.length&&!remoteCatalogSignature))return;
-      const nextProducts=rows.map(row=>({id:row.id,name:row.name,group:row.category,icon:row.settings?.icon||"ph-cube",detail:row.description||"Lo preparamos a medida para vos.",minQuantity:row.min_quantity||1,featured:Boolean(row.featured),publicationStatus:row.publication_status||"published",imageUrl:publicStorageUrl(row.image_path),imageAlt:row.image_alt||row.name,badge:row.badge||"",imagePositionX:Number(row.settings?.image_position_x??50),imagePositionY:Number(row.settings?.image_position_y??50),imageZoom:Number(row.settings?.image_zoom??1),imageFit:row.settings?.image_fit==="contain"?"contain":"cover",imageBackground:/^#[0-9a-f]{6}$/i.test(row.settings?.image_background||"")?row.settings.image_background:"#d9dcdf",source:"supabase"}));
+      const nextProducts=rows.map(row=>({id:row.id,name:row.name,group:row.category,icon:row.settings?.icon||"ph-cube",detail:row.description||"Lo preparamos a medida para vos.",requestPrompt:row.settings?.request_prompt||"",minQuantity:row.min_quantity||1,featured:Boolean(row.featured),publicationStatus:row.publication_status||"published",imageUrl:publicStorageUrl(row.image_path),imageAlt:row.image_alt||row.name,badge:row.badge||"",imagePositionX:Number(row.settings?.image_position_x??50),imagePositionY:Number(row.settings?.image_position_y??50),imageZoom:Number(row.settings?.image_zoom??1),imageFit:row.settings?.image_fit==="contain"?"contain":"cover",imageBackground:/^#[0-9a-f]{6}$/i.test(row.settings?.image_background||"")?row.settings.image_background:"#d9dcdf",source:"supabase"}));
       const nextSignature=JSON.stringify(nextProducts);
       if(nextSignature===remoteCatalogSignature)return;
       const previous=state.current?.id;
@@ -286,6 +286,40 @@
     const fallback=group.includes("Personalizados")?"brand":group.includes("Negocios")?"display":group.includes("Eventos")?"event":group.includes("Hogar")?"home":group.includes("Figuras")?"figure":"technical";
     const key=profileByProduct[product.id]||fallback;return {...productProfiles[key],key};
   }
+  const includedProductPrompts={
+    "llaveros":"¿Qué nombre, texto o logo lleva el llavero?",
+    "llaveros-qr-nfc":"¿Qué nombre, texto o enlace lleva?",
+    "nombres-letras":"¿Qué nombre o letras querés que lleve?",
+    "nombres-escritorio":"¿Qué nombre o letras querés que lleve?",
+    "iniciales-decorativas":"¿Qué nombre o iniciales querés que lleve?",
+    "toppers":"¿Qué nombre, edad o texto lleva?",
+    "placas":"¿Qué texto debe aparecer en la placa?",
+    "medallas":"¿Qué nombre, categoría o texto lleva?",
+    "trofeos":"¿Qué nombre, categoría o texto lleva?",
+    "souvenirs":"¿Qué nombre, fecha o temática llevan?",
+    "mascotas":"¿Qué mascota querés representar?",
+    "figuras-referencia":"¿Qué figura querés representar?",
+    "logos-3d":"¿Qué logo o texto lleva?",
+    "logos-locales":"¿Qué logo o texto lleva?",
+    "porta-qr":"¿Qué enlace debe abrir el QR?",
+    "porta-qr-nfc":"¿Qué enlace debe abrir el QR o NFC?"
+  };
+  function includedProductPrompt(product){
+    const configured=String(product?.requestPrompt||"").trim();if(configured)return configured;
+    if(includedProductPrompts[product?.id])return includedProductPrompts[product.id];
+    const name=String(product?.name||"").toLowerCase(),description=String(product?.detail||"").toLowerCase();
+    if(/\b(nombres?|letras?|iniciales?)\b/i.test(`${name} ${description}`))return "¿Qué nombre o letras querés que lleve?";
+    if(/\b(qr|nfc)\b/i.test(name))return "¿Qué enlace debe abrir?";
+    return "";
+  }
+  function productRequestProfile(product){
+    const base=getProductProfile(product),prompt=includedProductPrompt(product);
+    const fields=[];
+    if(state.productRequestMode==="customize")fields.push({key:"cambios_solicitados",label:"¿Cómo querés personalizarlo?",type:"textarea",placeholder:"Contanos tu idea, incluso si querés cambiarlo por completo. Podemos definir juntos lo que falte."});
+    else if(prompt)fields.push({key:"detalle_incluido",label:prompt,type:"text",placeholder:requiresProductUrl(product)?"https://...":"Escribilo tal como debe aparecer"});
+    return {...base,fields};
+  }
+  function requiresProductUrl(product){return ["porta-qr","porta-qr-nfc"].includes(product?.id)||includedProductPrompt(product)==="¿Qué enlace debe abrir?";}
   function defaultAnswers(profile){return Object.fromEntries(profile.fields.map(field=>[field.key,field.type==="multi"?[]:""]));}
   function emptyBuilder(){return {type:"",use:"",details:{personalizacion:[]},quantity:"",customQuantity:"",size:"",environment:[],measure:"",deadline:"",deadlineDate:"",file:"",files:[],fileObjects:[],filePreview:"",filePreviews:[],idea:""};}
 
@@ -294,7 +328,7 @@
   const state = {
     route:"home", current:products[0], category:"Todos", search:"", catalogLimit:12, items:Array.isArray(storedItems)?storedItems:[],
     quantity:"",customQuantity:"",size:"",colors:new Set(),design:"Necesito ayuda",deadline:"",deadlineDate:"",file:"",files:[],fileObjects:[],
-    answers:defaultAnswers(getProductProfile(products[0])),filePreview:"",filePreviews:[],customerName:"", customerContext:"", customerMessage:"",
+    answers:{},productRequestMode:"",filePreview:"",filePreviews:[],customerName:"", customerContext:"", customerMessage:"",
     customerPhone:"",customerEmail:"",customerDeliveryMethod:"shipping",customerDepartment:"Montevideo",customerCity:"",customerAddress:"",customerDeliveryNotes:"",submittedRequestId:"",favorites:new Set(readStorage(STORAGE_FAVORITES,[])),editingUid:"",origin:null,messageWasCompacted:false,builderStep:0,detailStep:0,
     builder:emptyBuilder()
   };
@@ -363,7 +397,7 @@
     state.editingUid="";
     if(next.route==="detail"){
       if(state.current.id!==next.product.id){
-        state.current=next.product;state.detailStep=0;state.answers=defaultAnswers(getProductProfile(next.product));
+        state.current=next.product;state.detailStep=0;state.productRequestMode="";state.answers={};
         state.quantity="";state.customQuantity="";state.deadline="";state.deadlineDate="";state.file="";state.files=[];state.fileObjects=[];state.filePreview="";state.filePreviews=[];
       }
     }
@@ -597,10 +631,10 @@
   function configurationField(field){
     const value=state.answers[field.key]||"";const optional=field.optional?` <em>(opcional)</em>`:` <em class="required">*</em>`;
     const labelId=`field-${field.key}`;
-    if(field.type==="choice")return `<div class="config-field" data-entry role="group" aria-labelledby="${labelId}"><small id="${labelId}">${field.label}${optional}</small><div class="config-options" data-answer="${field.key}">${field.options.map(option=>`<button class="${value===option?"active":""}" aria-pressed="${value===option}" data-value="${option}">${option}</button>`).join("")}</div></div>`;
-    if(field.type==="multi"){const selected=Array.isArray(value)?value:displayValue(value).split(" · ").filter(Boolean);return `<div class="config-field" data-entry role="group" aria-labelledby="${labelId}"><small id="${labelId}">${field.label}${optional}</small><div class="config-options multi-options" data-answer-multi="${field.key}">${field.options.map(option=>`<button class="${selected.includes(option)?"active":""}" aria-pressed="${selected.includes(option)}" data-value="${option}">${option}</button>`).join("")}</div></div>`;}
-    const tag=field.type==="textarea"?`<textarea rows="3" maxlength="600" aria-required="${!field.optional}" data-answer-input="${field.key}" placeholder="${field.placeholder||""}">${escapeText(value)}</textarea>`:`<input ${field.type==="date"?`type="date" min="${todayValue()}"`:""} maxlength="180" aria-required="${!field.optional}" data-answer-input="${field.key}" value="${escapeText(value)}" placeholder="${field.placeholder||""}">`;
-    return `<label class="config-field config-text" data-entry><small>${field.label}${optional}</small>${tag}</label>`;
+    if(field.type==="choice")return `<div class="config-field" data-entry role="group" aria-labelledby="${labelId}"><small id="${labelId}">${escapeText(field.label)}${optional}</small><div class="config-options" data-answer="${field.key}">${field.options.map(option=>`<button class="${value===option?"active":""}" aria-pressed="${value===option}" data-value="${escapeText(option)}">${escapeText(option)}</button>`).join("")}</div></div>`;
+    if(field.type==="multi"){const selected=Array.isArray(value)?value:displayValue(value).split(" · ").filter(Boolean);return `<div class="config-field" data-entry role="group" aria-labelledby="${labelId}"><small id="${labelId}">${escapeText(field.label)}${optional}</small><div class="config-options multi-options" data-answer-multi="${field.key}">${field.options.map(option=>`<button class="${selected.includes(option)?"active":""}" aria-pressed="${selected.includes(option)}" data-value="${escapeText(option)}">${escapeText(option)}</button>`).join("")}</div></div>`;}
+    const tag=field.type==="textarea"?`<textarea rows="3" maxlength="600" aria-label="${escapeText(field.label)}" aria-required="${!field.optional}" data-answer-input="${field.key}" placeholder="${escapeText(field.placeholder||"")}">${escapeText(value)}</textarea>`:`<input ${field.type==="date"?`type="date" min="${todayValue()}"`:""} maxlength="180" aria-label="${escapeText(field.label)}" aria-required="${!field.optional}" data-answer-input="${field.key}" value="${escapeText(value)}" placeholder="${escapeText(field.placeholder||"")}">`;
+    return `<label class="config-field config-text" data-entry><small>${escapeText(field.label)}${optional}</small>${tag}</label>`;
   }
 
   function detailFieldIcon(field){
@@ -631,25 +665,27 @@
     return "Elegí la opción que mejor se acerque. Después afinamos los detalles.";
   }
 
-  function detailStepCount(profile){return profile.fields.length+3;}
+  function detailStepCount(profile){return profile.fields.length+4;}
   function detailStepValue(profile,step=state.detailStep){
-    if(step<profile.fields.length)return state.answers[profile.fields[step].key];
-    if(step===profile.fields.length)return selectedQuantity(state.quantity,state.customQuantity);
-    if(step===profile.fields.length+1)return state.deadline;
+    if(step===0)return state.productRequestMode;
+    if(step<=profile.fields.length)return state.answers[profile.fields[step-1].key];
+    if(step===profile.fields.length+1)return selectedQuantity(state.quantity,state.customQuantity);
+    if(step===profile.fields.length+2)return state.deadline;
     return "";
   }
 
   function detailStepIssue(profile,step=state.detailStep){
-    if(step<profile.fields.length){
-      const field=profile.fields[step],value=state.answers[field.key];
+    if(step===0)return state.productRequestMode?"":"Elegí cómo querés pedir este producto";
+    if(step<=profile.fields.length){
+      const field=profile.fields[step-1],value=state.answers[field.key];
       if(!field.optional&&!hasValue(value))return `Completá “${field.label}” para continuar`;
-      if(profile.key==="qr"&&field.key==="enlace"&&value&&!validWebUrl(value))return "Ingresá un enlace válido que empiece con https://";
+      if(field.key==="detalle_incluido"&&requiresProductUrl(state.current)&&value&&!validWebUrl(value))return "Ingresá un enlace válido que empiece con https://";
       if(field.type==="date"&&value&&!validFutureDate(value))return "Elegí una fecha válida desde hoy";
       if(["medida","medidas","ancho","altura"].includes(field.key)&&value&&!hasMeasurementUnit(value))return "Agregá la unidad de medida, por ejemplo mm o cm";
       return "";
     }
-    if(step===profile.fields.length&&!validProductQuantity(state.quantity,state.customQuantity,state.current))return `La cantidad mínima para este producto es ${minimumQuantity(state.current)}`;
-    if(step===profile.fields.length+1){
+    if(step===profile.fields.length+1&&!validProductQuantity(state.quantity,state.customQuantity,state.current))return `La cantidad mínima para este producto es ${minimumQuantity(state.current)}`;
+    if(step===profile.fields.length+2){
       if(!state.deadline)return "Elegí un plazo para continuar";
       if(state.deadline==="Fecha definida"&&!validFutureDate(state.deadlineDate))return "Elegí una fecha válida desde hoy";
     }
@@ -658,15 +694,19 @@
 
   function detailWizardField(profile){
     const step=state.detailStep;
-    if(step<profile.fields.length){
-      const field=profile.fields[step];
-      return `<div class="detail-question-head"><span class="detail-question-icon" data-morph="${detailFieldMorph(field)}"><i class="ph ${detailFieldIcon(field)}" aria-hidden="true"></i></span><div><small>UNA DECISIÓN A LA VEZ</small><h3>${field.label}</h3><p>${detailFieldHint(field)}</p></div></div>${configurationField({...field,label:""})}`;
+    if(step===0){
+      const mode=state.productRequestMode;
+      return `<div class="detail-question-head"><span class="detail-question-icon" data-morph="detail-choice"><i class="ph ph-hand-pointing" aria-hidden="true"></i></span><div><small>ESTE PRODUCTO</small><h3>¿Cómo lo querés?</h3><p>Podés pedirlo tal como está descrito o contarnos una idea distinta a partir de este producto.</p></div></div><div class="product-request-modes" role="group" aria-label="Cómo pedir ${escapeText(state.current.name)}"><button type="button" data-product-request-mode="as_shown" class="${mode==="as_shown"?"active":""}" aria-pressed="${mode==="as_shown"}"><i class="ph ph-check-circle"></i><span><b>Como se muestra</b><small>${includedProductPrompt(state.current)?"Después te pedimos el dato que lleva este producto, como nombre, letras o enlace.":"Pedilo con las características de esta ficha."}</small></span></button><button type="button" data-product-request-mode="customize" class="${mode==="customize"?"active":""}" aria-pressed="${mode==="customize"}"><i class="ph ph-pencil-simple"></i><span><b>Quiero personalizarlo</b><small>Contanos tu idea, aunque quieras cambiar el producto por completo.</small></span></button></div>`;
     }
-    if(step===profile.fields.length){
+    if(step<=profile.fields.length){
+      const field=profile.fields[step-1];
+      return `<div class="detail-question-head"><span class="detail-question-icon" data-morph="${detailFieldMorph(field)}"><i class="ph ${detailFieldIcon(field)}" aria-hidden="true"></i></span><div><small>DETALLE DEL PRODUCTO</small><h3>${escapeText(field.label)}</h3><p>${detailFieldHint(field)}</p></div></div>${configurationField(field)}`;
+    }
+    if(step===profile.fields.length+1){
       const minimum=minimumQuantity(state.current);const quantityOptions=["1","10","25","50","100","250+","Otra"].filter(value=>value==="Otra"||parseInt(value,10)>=minimum);
       return `<div class="detail-question-head"><span class="detail-question-icon" data-morph="detail-choice"><i class="ph ph-stack" aria-hidden="true"></i></span><div><small>CANTIDAD</small><h3>¿Cuántas unidades necesitás?</h3><p>Si todavía no lo sabés, elegí una aproximación.</p></div></div><div class="config-field detail-single-field" role="group" aria-labelledby="quantity-label"><small id="quantity-label">Pedido mínimo: ${minimum} ${minimum===1?"unidad":"unidades"}</small><div class="config-options quantity-options" data-option="quantity">${quantityOptions.map(value=>`<button class="${state.quantity===value?"active":""}" aria-pressed="${state.quantity===value}" data-value="${value}">${value}</button>`).join("")}</div>${state.quantity==="Otra"?`<label class="conditional-input"><span>Cantidad exacta · mínimo ${minimum}</span><input id="custom-quantity" inputmode="numeric" aria-required="true" min="${minimum}" maxlength="5" value="${escapeText(state.customQuantity)}" placeholder="Ej.: ${minimum}"></label>`:""}</div>`;
     }
-    if(step===profile.fields.length+1){
+    if(step===profile.fields.length+2){
       return `<div class="detail-question-head"><span class="detail-question-icon" data-morph="detail-time"><i class="ph ph-clock" aria-hidden="true"></i></span><div><small>PLAZO</small><h3>¿Para cuándo lo necesitás?</h3><p>La fecha nos ayuda a recomendarte el mejor camino.</p></div></div><div class="config-field detail-single-field" role="group" aria-labelledby="deadline-label"><small id="deadline-label">Elegí una opción</small><div class="config-options deadline-options" data-option="deadline">${["Sin apuro","Fecha definida","Lo antes posible"].map(value=>`<button class="${state.deadline===value?"active":""}" aria-pressed="${state.deadline===value}" data-value="${value}">${value}</button>`).join("")}</div>${state.deadline==="Fecha definida"?`<label class="conditional-input"><span>Fecha necesaria</span><input id="deadline-date" type="date" min="${todayValue()}" aria-required="true" value="${escapeText(state.deadlineDate)}"></label>`:""}</div>`;
     }
     const answered=profile.fields.filter(field=>hasValue(state.answers[field.key])).length;
@@ -687,14 +727,14 @@
 
   function itemAnswerRows(item){
     if(!item.answers)return [];
-    if(item.profileKey==="custom"&&item.answerLabels)return Object.entries(item.answerLabels).map(([key,label])=>[label,displayValue(item.answers[key])]).filter(([,value])=>value);
+    if(item.answerLabels)return Object.entries(item.answerLabels).map(([key,label])=>[label,displayValue(item.answers[key])]).filter(([,value])=>value);
     const profile=productProfiles[item.profileKey]||getProductProfile(item);
     return profile.fields.map(field=>{const value=item.answers[field.key];const displayed=field.type==="date"&&value?new Date(`${value}T12:00:00`).toLocaleDateString("es-UY"):displayValue(value);return [field.label,displayed];}).filter(([,value])=>value);
   }
 
   function detail(){
     const product=state.current;
-    const profile=getProductProfile(product);
+    const profile=productRequestProfile(product);
     const minimum=minimumQuantity(product);
     const totalSteps=detailStepCount(profile);const progress=Math.round((state.detailStep+1)/totalSteps*100);
     return `<section class="detail">
@@ -704,7 +744,7 @@
         <div class="detail-metrics" data-entry><div><small>Pedido mínimo</small><strong>${minimum} ${minimum===1?"unidad":"unidades"}</strong></div><div><small>Producción</small><strong>Local</strong></div></div>
         <div class="detail-assurance" data-entry><span><i class="ph ph-check-circle" aria-hidden="true"></i> Material según el uso</span><span><i class="ph ph-check-circle" aria-hidden="true"></i> Precio y plazo antes de fabricar</span><span><i class="ph ph-check-circle" aria-hidden="true"></i> No necesitás archivo 3D</span></div>
         <section class="product-config product-wizard" data-entry>
-          <div class="product-wizard-top"><div><span>CONFIGURÁ TU PIEZA</span><strong>Paso ${String(state.detailStep+1).padStart(2,"0")} de ${String(totalSteps).padStart(2,"0")}</strong></div><div class="product-wizard-progress" aria-label="${progress}% completo"><i style="width:${progress}%"></i></div></div>
+          <div class="product-wizard-top"><div><span>PEDÍ ESTE PRODUCTO</span><strong>Paso ${String(state.detailStep+1).padStart(2,"0")} de ${String(totalSteps).padStart(2,"0")}</strong></div><div class="product-wizard-progress" aria-label="${progress}% completo"><i style="width:${progress}%"></i></div></div>
           <div class="form-alert" id="form-alert" hidden></div>
           <div class="product-wizard-card">${detailWizardField(profile)}</div>
           <div class="product-wizard-nav">
@@ -859,14 +899,15 @@
   async function openProduct(id,image){
     const product=products.find(item=>item.id===id); if(!product)return;
     state.origin={route:state.route,category:state.category,search:state.search,scrollTop:view.scrollTop,windowY:window.scrollY};
-    await travelProduct({source:image,destinationSelector:"#product-detail-image",src:imageFor(product),update:()=>{state.current=product;state.editingUid="";state.detailStep=0;state.answers=defaultAnswers(getProductProfile(product));state.quantity="";state.customQuantity="";state.deadline="";state.deadlineDate="";state.file="";state.files=[];state.fileObjects=[];state.filePreview="";state.filePreviews=[];state.route="detail";navigateToRoute("detail",{product,renderRoute:false});render({entry:false});}});
+    await travelProduct({source:image,destinationSelector:"#product-detail-image",src:imageFor(product),update:()=>{state.current=product;state.editingUid="";state.detailStep=0;state.productRequestMode="";state.answers={};state.quantity="";state.customQuantity="";state.deadline="";state.deadlineDate="";state.file="";state.files=[];state.fileObjects=[];state.filePreview="";state.filePreviews=[];state.route="detail";navigateToRoute("detail",{product,renderRoute:false});render({entry:false});}});
   }
 
   async function addCurrent(){
-    const profile=getProductProfile(state.current);const missing=profile.fields.filter(field=>!field.optional&&!hasValue(state.answers[field.key]));
+    const profile=productRequestProfile(state.current);const missing=profile.fields.filter(field=>!field.optional&&!hasValue(state.answers[field.key]));
+    if(!state.productRequestMode)missing.unshift({key:"productRequestMode",label:"Cómo querés el producto"});
     const quantity=selectedQuantity(state.quantity,state.customQuantity);if(!validProductQuantity(state.quantity,state.customQuantity,state.current))missing.push({key:"quantity",label:`Cantidad mínima: ${minimumQuantity(state.current)} unidades`});
     if(!state.deadline)missing.push({key:"deadline",label:"Plazo"});else if(state.deadline==="Fecha definida"&&!validFutureDate(state.deadlineDate))missing.push({key:"deadline",label:"Fecha válida desde hoy"});
-    if(profile.key==="qr"&&state.answers.enlace&&!validWebUrl(state.answers.enlace))missing.push({key:"enlace",label:"Enlace QR válido (https://…)"});
+    if(state.productRequestMode==="as_shown"&&requiresProductUrl(state.current)&&state.answers.detalle_incluido&&!validWebUrl(state.answers.detalle_incluido))missing.push({key:"detalle_incluido",label:"Enlace QR válido (https://…)"});
     profile.fields.filter(field=>field.type==="date"&&hasValue(state.answers[field.key])&&!validFutureDate(state.answers[field.key])).forEach(field=>missing.push({key:field.key,label:`${field.label} válida desde hoy`}));
     ["medida","medidas","ancho","altura"].forEach(key=>{if(state.answers[key]&&!hasMeasurementUnit(state.answers[key]))missing.push({key,label:"Medidas con unidad (mm o cm)"});});
     if(!state.editingUid&&state.items.length>=MAX_ITEMS){notify(`Máximo ${MAX_ITEMS} ideas por consulta. Enviá esta solicitud y empezá otra.`);return;}
@@ -874,7 +915,9 @@
     if(uniqueMissing.length){const alert=view.querySelector("#form-alert");if(alert){alert.hidden=false;alert.setAttribute("role","alert");alert.innerHTML=`<i class="ph ph-warning-circle"></i><span><b>Revisá ${uniqueMissing.length} ${uniqueMissing.length===1?"dato":"datos"}</b>${uniqueMissing.map(item=>escapeText(item.label)).join(" · ")}</span>`;}view.querySelectorAll(".config-field").forEach(field=>{field.classList.remove("invalid");field.removeAttribute("aria-invalid");});const fieldFor=key=>key==="quantity"?view.querySelector("[data-option='quantity']")?.closest(".config-field"):key==="deadline"?view.querySelector("[data-option='deadline']")?.closest(".config-field"):view.querySelector(`[data-answer='${key}']`)?.closest(".config-field")||view.querySelector(`[data-answer-multi='${key}']`)?.closest(".config-field")||view.querySelector(`[data-answer-input='${key}']`)?.closest(".config-field");uniqueMissing.forEach(item=>{const field=fieldFor(item.key);field?.classList.add("invalid");field?.setAttribute("aria-invalid","true");});const firstField=fieldFor(uniqueMissing[0].key)||alert;firstField?.scrollIntoView({behavior:"smooth",block:"center"});firstField?.querySelector?.("button,input,textarea")?.focus();notify(`Revisá ${uniqueMissing.length} ${uniqueMissing.length===1?"dato pendiente":"datos pendientes"}`);return;}
     const source=document.querySelector("#product-detail-image");
     const uid=state.editingUid||`${Date.now()}-${Math.random()}`;
-    const item={...state.current,uid,image:imageFor(state.current),quantity,size:state.answers.medida||state.answers.medidas||state.answers.altura||"A definir",colors:state.answers.colores||state.answers.acabado||"Según configuración",design:state.files.length?"Referencia preparada":"Necesita ayuda",deadline:state.deadline,deadlineDate:state.deadlineDate,file:state.file,files:[...state.files],fileObjects:[...state.fileObjects],referencePreview:state.filePreview,referencePreviews:[...state.filePreviews],profileKey:profile.key,answers:{...state.answers}};
+    const answers={modalidad:state.productRequestMode==="customize"?"Personalizar este producto":"Como se muestra",...Object.fromEntries(profile.fields.map(field=>[field.key,state.answers[field.key]]))};
+    const answerLabels={modalidad:"Cómo lo quiere",...Object.fromEntries(profile.fields.map(field=>[field.key,field.label]))};
+    const item={...state.current,uid,image:imageFor(state.current),quantity,size:"Según la ficha",colors:"Según la ficha",design:state.productRequestMode==="customize"?"Cambios solicitados":"Como se muestra",deadline:state.deadline,deadlineDate:state.deadlineDate,file:state.file,files:[...state.files],fileObjects:[...state.fileObjects],referencePreview:state.filePreview,referencePreviews:[...state.filePreviews],profileKey:"catalog_request",answers,answerLabels};
     await travelProduct({source,destinationSelector:`[data-request-image='${item.uid}']`,src:item.image,variant:"request",update:()=>{const index=state.items.findIndex(existing=>existing.uid===state.editingUid);if(index>=0)state.items[index]=item;else state.items.push(item);state.editingUid="";persistRequest();state.route="request";navigateToRoute("request",{renderRoute:false});render({entry:false});}});
     bounce(document.querySelector(".request-header"));
   }
@@ -916,7 +959,7 @@
     const item=state.items.find(entry=>entry.uid===uid);if(!item)return;state.editingUid=uid;
     state.origin={route:"request",category:state.category,search:state.search,scrollTop:0,windowY:0};
     if(item.id==="custom"){const standard=["1","10","25","50","100","250+"];const type=item.answers?.tipo||item.group.split(" · ")[0]||"";const environments=Array.isArray(item.answers?.entorno)?item.answers.entorno:String(item.answers?.entorno||"").split(" · ").filter(Boolean);const personalization=Array.isArray(item.answers?.personalizacion)?item.answers.personalizacion:String(item.answers?.personalizacion||"").split(" · ").filter(value=>value&&value!=="A definir");state.builder={...state.builder,type,use:type,details:{personalizacion:personalization},environment:environments,measure:item.answers?.medidas==="A definir"?"":item.answers?.medidas||"",quantity:standard.includes(item.quantity)?item.quantity:"Otra",customQuantity:standard.includes(item.quantity)?"":item.quantity,size:"",deadline:item.deadline||"",deadlineDate:item.deadlineDate||"",file:item.file||"",files:item.files||(item.file?[item.file]:[]),fileObjects:item.fileObjects||[],filePreview:item.referencePreview||"",filePreviews:item.referencePreviews||[],idea:item.idea||item.answers?.idea||""};state.builderStep=0;state.route="builder";navigateToRoute("builder",{renderRoute:false});render();return;}
-    const product=products.find(entry=>entry.id===item.id);if(!product)return;const standard=["1","10","25","50","100","250+"];state.current=product;state.quantity=standard.includes(item.quantity)?item.quantity:"Otra";state.customQuantity=standard.includes(item.quantity)?"":item.quantity;state.answers=item.answers?{...item.answers}:defaultAnswers(getProductProfile(product));state.deadline=item.deadline||"";state.deadlineDate=item.deadlineDate||"";state.file=item.file||"";state.files=item.files||(item.file?[item.file]:[]);state.fileObjects=item.fileObjects||[];state.filePreview=item.referencePreview||"";state.filePreviews=item.referencePreviews||[];state.detailStep=detailStepCount(getProductProfile(product))-1;state.route="detail";navigateToRoute("detail",{product,renderRoute:false});render();
+    const product=products.find(entry=>entry.id===item.id);if(!product)return;const standard=["1","10","25","50","100","250+"];state.current=product;state.quantity=standard.includes(item.quantity)?item.quantity:"Otra";state.customQuantity=standard.includes(item.quantity)?"":item.quantity;state.answers=item.answers?{...item.answers}:{};state.productRequestMode=item.answers?.modalidad==="Personalizar este producto"?"customize":"as_shown";state.deadline=item.deadline||"";state.deadlineDate=item.deadlineDate||"";state.file=item.file||"";state.files=item.files||(item.file?[item.file]:[]);state.fileObjects=item.fileObjects||[];state.filePreview=item.referencePreview||"";state.filePreviews=item.referencePreviews||[];state.detailStep=detailStepCount(productRequestProfile(product))-1;state.route="detail";navigateToRoute("detail",{product,renderRoute:false});render();
   }
 
   function buildMessage(compact=false){
@@ -1020,7 +1063,7 @@
   }
 
   function moveDetailStep(next,direction=1){
-    const profile=getProductProfile(state.current);state.detailStep=Math.max(0,Math.min(detailStepCount(profile)-1,next));render({scroll:false,entry:false});
+    const profile=productRequestProfile(state.current);state.detailStep=Math.max(0,Math.min(detailStepCount(profile)-1,next));render({scroll:false,entry:false});
     const card=view.querySelector(".product-wizard-card");
     if(card&&!matchMedia("(prefers-reduced-motion: reduce)").matches)card.animate([{opacity:.18,transform:`translateX(${direction*20}px) scale(.99)`},{opacity:1,transform:"translateX(0) scale(1)"}],{duration:420,easing:"cubic-bezier(.16,1,.3,1)"});
     view.querySelector(".product-wizard")?.scrollIntoView({behavior:"smooth",block:"center"});
@@ -1093,7 +1136,8 @@
     const reference=view.querySelector("#reference");if(reference)reference.addEventListener("change",()=>{const files=[...reference.files];const maxMb=getProductProfile(state.current).fileMaxMB||10;if(files.length>MAX_FILES){reference.value="";notify(`Podés adjuntar hasta ${MAX_FILES} referencias`);return;}if(files.some(file=>file.size>maxMb*1024*1024)){reference.value="";notify(`Cada archivo debe pesar menos de ${maxMb} MB`);return;}state.filePreviews.filter(src=>src.startsWith("blob:")).forEach(src=>URL.revokeObjectURL(src));state.files=files.map(file=>file.name);state.fileObjects=files;state.file=state.files.join(", ");state.filePreviews=files.filter(file=>file.type.startsWith("image/")).map(file=>URL.createObjectURL(file));state.filePreview=state.filePreviews[0]||"";render({scroll:false,entry:false});notify(files.length?`${files.length} ${files.length===1?"referencia cargada":"referencias cargadas"}`:"Referencias quitadas");});
     view.querySelector("[data-clear-references]")?.addEventListener("click",()=>{state.filePreviews.filter(src=>src.startsWith("blob:")).forEach(src=>URL.revokeObjectURL(src));state.file="";state.files=[];state.fileObjects=[];state.filePreview="";state.filePreviews=[];render({scroll:false,entry:false});notify("Referencias quitadas");});
     view.querySelector("#add-request")?.addEventListener("click",addCurrent);
-    view.querySelector("[data-detail-next]")?.addEventListener("click",()=>{const profile=getProductProfile(state.current);const issue=detailStepIssue(profile);if(issue){notify(issue);const card=view.querySelector(".product-wizard-card");if(card&&!matchMedia("(prefers-reduced-motion: reduce)").matches)card.animate([{transform:"translateX(0)"},{transform:"translateX(-5px)"},{transform:"translateX(5px)"},{transform:"translateX(0)"}],{duration:260});card?.querySelector("input,textarea,button")?.focus();return;}moveDetailStep(state.detailStep+1,1);});
+    view.querySelectorAll("[data-product-request-mode]").forEach(button=>button.addEventListener("click",()=>{state.productRequestMode=button.dataset.productRequestMode;moveDetailStep(1,1);}));
+    view.querySelector("[data-detail-next]")?.addEventListener("click",()=>{const profile=productRequestProfile(state.current);const issue=detailStepIssue(profile);if(issue){notify(issue);const card=view.querySelector(".product-wizard-card");if(card&&!matchMedia("(prefers-reduced-motion: reduce)").matches)card.animate([{transform:"translateX(0)"},{transform:"translateX(-5px)"},{transform:"translateX(5px)"},{transform:"translateX(0)"}],{duration:260});card?.querySelector("input,textarea,button")?.focus();return;}moveDetailStep(state.detailStep+1,1);});
     view.querySelector("[data-detail-prev]")?.addEventListener("click",()=>moveDetailStep(state.detailStep-1,-1));
     view.querySelector("#save-product")?.addEventListener("click",()=>{const id=state.current.id;if(state.favorites.has(id)){state.favorites.delete(id);notify("Quitado de guardados");}else{state.favorites.add(id);notify("Guardado para más tarde");}persistFavorites();render({scroll:false,entry:false});});
     view.querySelectorAll("[data-edit]").forEach(button=>button.addEventListener("click",()=>editItem(button.dataset.edit)));
