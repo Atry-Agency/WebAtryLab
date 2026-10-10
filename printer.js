@@ -17,6 +17,15 @@
     const status = host.querySelector('[data-print-status]');
     const progress = host.querySelector('[data-print-progress]');
     const pause = host.querySelector('[data-print-pause]');
+    const theme = ['valentines','halloween','christmas'].includes(host.dataset.printTheme) ? host.dataset.printTheme : 'original';
+    const printNames = {original:'pieza',valentines:'corazón',halloween:'calabaza',christmas:'árbol de Navidad'};
+    const palettes = {
+      original:{filament:0x009ac9,emissive:0x47cfe7,light:0x29caff},
+      valentines:{filament:0xd85683,emissive:0xff91b1,light:0xffb4cd},
+      halloween:{filament:0xe77b26,emissive:0xffad58,light:0xffbc74},
+      christmas:{filament:0x268764,emissive:0xbfe2a1,light:0xe6c987}
+    };
+    const palette=palettes[theme];
     const reduced = matchMedia('(prefers-reduced-motion: reduce)');
     const mobile = matchMedia('(max-width: 767px)').matches;
     const cores = navigator.hardwareConcurrency || 8;
@@ -56,8 +65,8 @@
     const rubber = material({color:0x070b0f, metalness:.08, roughness:.7});
     const bedMaterial = material({color:0x465054, metalness:.7, roughness:.57});
     const brass = material({color:0xc99a51, metalness:.82, roughness:.23});
-    const cyan = material({color:0x009ac9, metalness:.12, roughness:.34, envMapIntensity:.45});
-    const led = material({color:0x9befff, emissive:0x47cfe7, emissiveIntensity:3, roughness:.3});
+    const cyan = material({color:palette.filament, metalness:.12, roughness:.34, envMapIntensity:.45});
+    const led = material({color:palette.emissive, emissive:palette.emissive, emissiveIntensity:3, roughness:.3});
     const whiteLed = material({color:0xeeffff, emissive:0xa2d6e5, emissiveIntensity:2});
     function mesh(geometry, mat, x=0, y=0, z=0, parent=model) {
       const object = new T.Mesh(keep(geometry), mat);
@@ -107,7 +116,7 @@
     const shadowSize=quality==='medium'?1024:1536;
     key.shadow.mapSize.set(shadowSize,shadowSize);Object.assign(key.shadow.camera,{left:-4,right:4,top:7,bottom:-3,near:.1,far:20});
     key.shadow.normalBias=.025;key.shadow.bias=-.0003;scene.add(key);
-    const rim=new T.DirectionalLight(0x29caff,3);rim.position.set(4,4,-4);scene.add(rim);
+    const rim=new T.DirectionalLight(palette.light,3);rim.position.set(4,4,-4);scene.add(rim);
     const front=new T.DirectionalLight(0xffffff,1.2);front.position.set(4,2,6);scene.add(front);
     const floor=mesh(new T.PlaneGeometry(200,200),keep(new T.ShadowMaterial({opacity:.36})),0,-.06,0,scene);
     floor.rotation.x=-Math.PI/2;floor.castShadow=false;
@@ -160,17 +169,65 @@
     const outline=new T.Shape();
     const contours=[[[-.1874,.767],[.1874,.3923],[.1991,.3571],[.3747,.4976],[.5738,.5679],[.7728,.5562],[.9133,.4976],[1.0304,.4157],[1.2178,.2283],[1.3349,.0644],[1.37,-.0293],[1.1124,-.1815],[1.007,.0176],[.8314,.1932],[.726,.24],[.6557,.24],[.5738,.2049],[.4918,.1229],[.5035,.041],[.8665,-.3454],[.1874,-.767],[-.1991,-.3688],[-.3864,-.5094],[-.5503,-.5679],[-.7377,-.5679],[-.9368,-.4859],[-1.2295,-.2166],[-1.3349,-.0644],[-1.37,.0293],[-1.1124,.1815],[-1.0773,.0878],[-.9719,-.0644],[-.8197,-.2049],[-.7377,-.24],[-.644,-.24],[-.5621,-.2049],[-.4918,-.1229],[-.5035,-.041],[-.6791,.1229],[-.6791,.1464],[-.8665,.3454],[-.2342,.7201],[-.1874,.767]],[[-.1991,.404],[-.4215,.2752],[-.4215,.2518],[.1874,-.3923],[.2225,-.3923],[.4098,-.2752],[.4215,-.2518],[.3747,-.1932],[-.1991,.404]]];
     contours.forEach((points,index)=>{const path=index?new T.Path():outline;path.moveTo(...points[0]);points.slice(1).forEach(p=>path.lineTo(...p));path.closePath();if(index)outline.holes.push(path);});
+    function heartShape(){
+      const shape=new T.Shape();
+      shape.moveTo(0,-.86);
+      shape.bezierCurveTo(-.26,-.66,-1.12,-.05,-1.12,.48);
+      shape.bezierCurveTo(-1.12,.88,-.53,1.02,0,.50);
+      shape.bezierCurveTo(.53,1.02,1.12,.88,1.12,.48);
+      shape.bezierCurveTo(1.12,-.05,.26,-.66,0,-.86);
+      shape.closePath();return shape;
+    }
+    function pumpkinShape(){
+      const shape=new T.Shape();
+      shape.moveTo(0,.71);
+      shape.bezierCurveTo(-.24,.88,-.68,.85,-.89,.62);
+      shape.bezierCurveTo(-1.28,.35,-1.27,-.36,-.87,-.63);
+      shape.bezierCurveTo(-.58,-.87,.58,-.87,.87,-.63);
+      shape.bezierCurveTo(1.27,-.36,1.28,.35,.89,.62);
+      shape.bezierCurveTo(.68,.85,.24,.88,0,.71);
+      shape.closePath();
+      const leftEye=new T.Path();leftEye.moveTo(-.62,.28);leftEye.lineTo(-.15,.28);leftEye.lineTo(-.39,-.09);leftEye.closePath();
+      const rightEye=new T.Path();rightEye.moveTo(.15,.28);rightEye.lineTo(.62,.28);rightEye.lineTo(.39,-.09);rightEye.closePath();
+      const mouth=new T.Path();mouth.moveTo(-.68,-.33);mouth.lineTo(-.39,-.47);mouth.lineTo(-.18,-.43);mouth.lineTo(0,-.55);mouth.lineTo(.18,-.43);mouth.lineTo(.39,-.47);mouth.lineTo(.68,-.33);mouth.lineTo(.48,-.62);mouth.lineTo(0,-.68);mouth.lineTo(-.48,-.62);mouth.closePath();
+      shape.holes.push(leftEye,rightEye,mouth);return shape;
+    }
+    function treeShape(){
+      const shape=new T.Shape();
+      const points=[[0,.91],[-.28,.42],[-.18,.42],[-.52,-.03],[-.38,-.03],[-.82,-.58],[-.16,-.58],[-.16,-.85],[.16,-.85],[.16,-.58],[.82,-.58],[.38,-.03],[.52,-.03],[.18,.42],[.28,.42]];
+      shape.moveTo(...points[0]);points.slice(1).forEach(point=>shape.lineTo(...point));shape.closePath();return shape;
+    }
+    const printOutline=theme==='valentines'?heartShape():theme==='halloween'?pumpkinShape():theme==='christmas'?treeShape():outline;
     const printHeight=.29;
-    const logoGeo=keep(new T.ExtrudeGeometry(outline,{depth:printHeight,steps:1,bevelEnabled:true,bevelSegments:3,bevelSize:.012,bevelThickness:.009,curveSegments:28}));
-    logoGeo.rotateX(-Math.PI/2);
+    const printGeo=keep(new T.ExtrudeGeometry(printOutline,{depth:printHeight,steps:1,bevelEnabled:true,bevelSegments:3,bevelSize:.012,bevelThickness:.009,curveSegments:28}));
+    printGeo.rotateX(-Math.PI/2);
     // Fine printed-layer highlights remain physical, not a blinking scan effect.
     cyan.onBeforeCompile=shader=>{
       shader.vertexShader=shader.vertexShader.replace('#include <common>','#include <common>\nvarying vec3 vPrintPosition;').replace('#include <begin_vertex>','#include <begin_vertex>\nvPrintPosition = position;');
       shader.fragmentShader=shader.fragmentShader.replace('#include <common>','#include <common>\nvarying vec3 vPrintPosition;').replace('#include <color_fragment>','#include <color_fragment>\nfloat layer = smoothstep(0.15,0.55,fract(vPrintPosition.y * 65.0));\ndiffuseColor.rgb *= 0.89 + 0.11 * layer;');
     };
     const printMaterial=keep(cyan.clone());printMaterial.onBeforeCompile=cyan.onBeforeCompile;printMaterial.transparent=true;
-    const print=mesh(logoGeo,printMaterial,0,1.035,0);print.scale.y=.3;
-    const toolPath=outline.getSpacedPoints(220);
+    const print=new T.Group();print.position.set(0,1.035,0);model.add(print);
+    mesh(printGeo,printMaterial,0,0,0,print);print.scale.y=.3;
+    const detailMaterials=[];
+    function detailMaterial(color){const item=material({color,metalness:.12,roughness:.4,transparent:true});detailMaterials.push(item);return item;}
+    function raisedShape(shape,color,x=0,z=0,scale=1,base=.29){
+      const geometry=keep(new T.ExtrudeGeometry(shape,{depth:.045,steps:1,bevelEnabled:true,bevelSegments:2,bevelSize:.005,bevelThickness:.005,curveSegments:16}));
+      geometry.rotateX(-Math.PI/2);const object=mesh(geometry,detailMaterial(color),x,base,z,print);object.scale.x=scale;object.scale.z=scale;return object;
+    }
+    if(theme==='valentines')raisedShape(heartShape(),0xffb9ce,0,.05,.43);
+    if(theme==='halloween'){
+      const stem=new T.Shape();stem.moveTo(-.12,.66);stem.lineTo(-.09,.97);stem.lineTo(.15,1.02);stem.lineTo(.11,.67);stem.closePath();
+      raisedShape(stem,0x5b9a56,0,0,1,0);
+    }
+    if(theme==='christmas'){
+      const star=new T.Shape();
+      for(let i=0;i<10;i++){const angle=-Math.PI/2+i*Math.PI/5,radius=i%2?.075:.17,x=Math.cos(angle)*radius,y=Math.sin(angle)*radius+1.04;if(i)star.lineTo(x,y);else star.moveTo(x,y);}
+      star.closePath();raisedShape(star,0xf2c95f,0,0,1,0);
+      const gold=detailMaterial(0xe6c05f),red=detailMaterial(0xc64b48);
+      [[-.25,-.28,gold],[.18,-.15,red],[0,.13,gold],[-.40,.42,red],[.37,.45,gold]].forEach(([x,z,mat])=>mesh(new T.CylinderGeometry(.065,.065,.045,18),mat,x,.32,z,print));
+    }
+    const toolPath=printOutline.getSpacedPoints(220);
     // Moving XY bridge, carriage and brass nozzle: tip tracks the printed contour.
     const gantry=new T.Group();model.add(gantry);
     for(const x of [-1.85,1.85]) {
@@ -198,7 +255,7 @@
     box(.25,.15,.23,graphite,0,-.45,0,head);
     mesh(new T.CylinderGeometry(.072,.018,.16,6),brass,0,-.60,0,head);
     // The nozzle tip sits at -0.68 relative to its moving group.
-    const nozzleLight=new T.PointLight(0x83e6ff,.75,1.35,2);nozzleLight.position.set(0,-.50,.13);head.add(nozzleLight);
+    const nozzleLight=new T.PointLight(palette.light,.75,1.35,2);nozzleLight.position.set(0,-.50,.13);head.add(nozzleLight);
     cylinder(.035,.16,rubber,0,.51,0,head);
     const tubeGeometry=keep(new T.BufferGeometry());
     const tubeArray=new Float32Array(33*3);tubeGeometry.setAttribute('position',new T.BufferAttribute(tubeArray,3));
@@ -237,7 +294,7 @@
       const amount=printing?Math.max(.015,smoother(printT)):1;
       const fade=cycle>=43?1-smoother((cycle-43)/3):Math.min(1,smoother(Math.min(cycle/2.5,1)));
       print.scale.y=Math.max(.002,amount);
-      printMaterial.opacity=fade;print.visible=fade>.006;
+      printMaterial.opacity=fade;detailMaterials.forEach(item=>{item.opacity=fade;});print.visible=fade>.006;
       const index=((printT*7.5)%1)*(toolPath.length-1);
       const p0=toolPath[Math.floor(index)],p1=toolPath[Math.min(toolPath.length-1,Math.floor(index)+1)];
       const fraction=index%1;
@@ -262,7 +319,7 @@
       model.rotation.y=-.06;
       renderer.render(scene,camera);
       progress.style.transform=`scaleX(${amount*fade})`;
-      const next=paused?'Animación en pausa':printing?'Imprimiendo pieza':cycle<43?'Pieza terminada':'Preparando nueva impresión';
+      const next=paused?'Animación en pausa':printing?`Imprimiendo ${printNames[theme]}`:cycle<43?'Pieza terminada':'Preparando nueva impresión';
       if(next!==lastStatus){status.textContent=next;lastStatus=next;}
     }
     function tick(now){

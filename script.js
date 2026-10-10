@@ -604,13 +604,23 @@
     return {...results,items:limit?results.items.slice(0,limit):results.items};
   }
 
+  function seasonalAtmosphereMarkup(){
+    if(activeSiteTheme==="original")return "";
+    const particles=Array.from({length:8},()=>'<span class="seasonal-particle"></span>').join("");
+    const bat='<svg class="seasonal-bat" viewBox="0 0 120 60"><path d="M60 24 50 12l-6 8C31 8 16 13 2 4c6 15 10 27 22 30-4 5-5 10-4 17 10-13 20-17 40-10 20-7 30-3 40 10 1-7 0-12-4-17 12-3 16-15 22-30-14 9-29 4-42 16l-6-8z"/></svg>';
+    return `<div class="seasonal-atmosphere" aria-hidden="true">${particles}${activeSiteTheme==="halloween"?bat+bat:""}</div>`;
+  }
+
   function home(catalog=false){
     const {items:list}=filteredProducts(catalog?undefined:8);
     const campaign=activeSiteTheme==="original"||previewSeason?{}:siteThemeConfig.campaigns[activeSiteTheme]||{};
     const seasonalNames={valentines:"San Valentín",halloween:"Halloween",christmas:"Navidad"};
+    const printLabels={original:"el isotipo de ATRY",valentines:"un corazón",halloween:"una calabaza",christmas:"un árbol de Navidad"};
+    const fallbackIcons={valentines:"ph-heart",halloween:"ph-moon-stars",christmas:"ph-tree-evergreen"};
+    const seasonalAtmosphere=seasonalAtmosphereMarkup();
     const reviewRating=rating=>`<span class="review-rating" aria-label="${String(rating).replace('.',',')} de 5 estrellas"><span class="review-stars" aria-hidden="true">${Array.from({length:5},(_,index)=>index+1<=Math.floor(rating)?`<i class="ph ph-star"></i>`:index<rating?`<i class="ph ph-star-half"></i>`:`<i class="ph ph-star review-star-empty"></i>`).join("")}</span><b>${String(rating).replace('.',',')}</b></span>`;
     const experiencesMarkup=experiences.cards.length?`<section class="reviews-section" data-entry><div class="reviews-head"><small>${escapeText(experiences.eyebrow)}</small><h2>${escapeText(experiences.title)}</h2></div><div class="reviews-window"><div class="reviews-track ${experiences.cards.length===1?"single":""}" style="--review-duration:${Math.max(24,experiences.cards.length*6)}s">${experiences.cards.map(card=>`<article class="review-card">${card.image?`<img src="${escapeText(card.image)}" alt="${escapeText(card.product)}">`:`<div class="review-image-empty"><i class="ph ph-image-square" aria-hidden="true"></i></div>`}<div>${reviewRating(card.rating)}<blockquote>“${escapeText(card.quote)}”</blockquote><strong>${escapeText(card.client)}</strong><small>${escapeText(card.product)}</small></div></article>`).join("")}</div></div></section>`:"";
-    return `<section class="home-hero">
+    return `<section class="home-hero">${seasonalAtmosphere}
       <div class="hero-copy" data-entry>
         <div class="location-line"><span class="location-icon"><i class="ph ph-map-pin"></i></span><span><small>Diseñamos y producimos en</small><strong>Montevideo, Uruguay</strong></span></div>
         ${activeSiteTheme!=="original"?`<span class="seasonal-hero-chip"><i class="ph ph-sparkle" aria-hidden="true"></i>Temporada ${seasonalNames[activeSiteTheme]}</span>`:""}
@@ -618,8 +628,8 @@
         <p class="home-service-line">${campaign.description?escapeText(campaign.description):"<b>Diseño y fabricación 3D personalizada.</b><br>Desde una pieza única hasta producciones para marcas, negocios y eventos."}</p>
         <div class="search-box" role="search" data-entry><i class="ph ph-magnifying-glass" aria-hidden="true"></i><input id="search" type="search" enterkeyhint="search" value="${escapeText(state.search)}" aria-label="Buscar productos" placeholder="Buscar llaveros, trofeos, porta QR, figuras..."><button type="button" data-search-submit aria-label="Buscar en el catálogo"><i class="ph ph-arrow-right" aria-hidden="true"></i></button></div>
       </div>
-      <section class="fabrication-studio" aria-label="Animación 3D de una impresora fabricando el isotipo de ATRY" data-printer-studio data-entry>
-        <div class="studio-viewport" data-printer-viewport><div class="studio-fallback"><img src="recursos/atry-isotipo.png" alt="Isotipo ATRY"><span>Ideas que toman forma.</span></div></div>
+      <section class="fabrication-studio" aria-label="Animación 3D de una impresora fabricando ${printLabels[activeSiteTheme]}" data-printer-studio data-print-theme="${activeSiteTheme}" data-entry>
+        <div class="studio-viewport" data-printer-viewport><div class="studio-fallback">${activeSiteTheme==="original"?'<img src="recursos/atry-isotipo.png" alt="Isotipo ATRY">':`<i class="ph ${fallbackIcons[activeSiteTheme]}" aria-hidden="true"></i>`}<span>Ideas que toman forma.</span></div></div>
         <div class="studio-caption"><span>DE LA IDEA A LA MATERIA</span><strong>Capa a capa.</strong></div>
         <div class="studio-controls"><div class="studio-state"><span class="studio-status-dot"></span><span data-print-status>Preparando la pieza</span></div><button class="studio-pause" data-print-pause data-morph="pause" aria-label="Pausar animación" title="Pausar animación"><i class="ph ph-pause" aria-hidden="true"></i></button></div>
         <div class="studio-progress" aria-hidden="true"><span data-print-progress></span></div>
@@ -655,7 +665,7 @@
       ["A medida","A MEDIDA","Tengo otra idea","Una pieza que todavía no existe.","catalog-custom","ph-pencil-ruler"]
     ];
     return `<section class="catalog-experience">
-      <header class="catalog-landing" data-entry>
+      <header class="catalog-landing" data-entry>${seasonalAtmosphereMarkup()}
         <div><small>CATÁLOGO ATRY</small><h1>Encontrá algo para vos.<br><span>O hagámoslo desde cero.</span></h1><p>Mirá lo nuevo.</p></div>
         <button class="catalog-create" data-route="builder"><span><img src="recursos/atry-isotipo.png" alt=""></span><span><b>Creá una pieza propia</b><small>Contanos qué imaginaste.</small></span><i class="ph ph-arrow-right" aria-hidden="true"></i></button>
       </header>
@@ -957,7 +967,7 @@
 
   function render({entry=true,scroll=true}={}){
     const previousStudio=view.querySelector('[data-printer-studio]');
-    const keepStudio=previousStudio&&state.route==="home";
+    const keepStudio=previousStudio&&state.route==="home"&&previousStudio.dataset.printTheme===activeSiteTheme;
     if(!keepStudio)window.atryPrinter?.dispose();
     updateNav();updateDocumentTitle(); const showFooter=["home","catalog","process"].includes(state.route);view.innerHTML=(templates[state.route]||templates.home)()+(showFooter?siteFooter():"");
     if(keepStudio)view.querySelector('[data-printer-studio]')?.replaceWith(previousStudio);
