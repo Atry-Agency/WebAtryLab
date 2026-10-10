@@ -20,6 +20,9 @@
   function escapeText(value=""){
     return String(value).replace(/[&<>"']/g,char=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[char]));
   }
+  const initialCatalogPrices={"posa-mate-con-soporte-para-bombilla-16249":250,"estuche-para-control-ps5-15758":800};
+  function startingPrice(product){const value=Number(product?.startingPriceUyu);return Number.isFinite(value)&&value>0?value:null;}
+  function startingPriceLabel(product){const value=startingPrice(product);return value===null?"":`$ ${new Intl.NumberFormat("es-UY",{maximumFractionDigits:2}).format(value)}`;}
 
   let products = [
     {id:"llaveros",name:"Llaveros personalizados",group:"Tu marca",icon:"ph-key",detail:"Tu logo, nombre o diseño convertido en un objeto que acompaña todos los días."},
@@ -187,7 +190,7 @@
     try{
       const rows=await supabaseRpc("get_public_catalog");
       if(!Array.isArray(rows)||(!rows.length&&!remoteCatalogSignature))return;
-      const nextProducts=rows.map(row=>({id:row.id,name:row.name,group:row.category,icon:row.settings?.icon||"ph-cube",detail:row.description||"Lo preparamos a medida para vos.",requestPrompt:row.settings?.request_prompt||"",orderQuestions:row.settings?.order_questions,galleryImages:(Array.isArray(row.settings?.gallery_images)?row.settings.gallery_images:[]).slice(0,2).map(image=>publicStorageUrl(typeof image==="string"?image:image?.path)).filter(Boolean),minQuantity:row.min_quantity||1,featured:Boolean(row.featured),sortOrder:Number(row.sort_order||0),featuredOrder:Number(row.settings?.featured_order??row.sort_order??0),publicationStatus:row.publication_status||"published",imageUrl:publicStorageUrl(row.image_path),imageAlt:row.image_alt||row.name,badge:row.badge||"",imagePositionX:Number(row.settings?.image_position_x??50),imagePositionY:Number(row.settings?.image_position_y??50),imageZoom:Number(row.settings?.image_zoom??1),imageFit:row.settings?.image_fit==="contain"?"contain":"cover",imageBackground:/^#[0-9a-f]{6}$/i.test(row.settings?.image_background||"")?row.settings.image_background:"#d9dcdf",source:"supabase"}));
+      const nextProducts=rows.map(row=>({id:row.id,name:row.name,group:row.category,icon:row.settings?.icon||"ph-cube",detail:row.description||"Lo preparamos a medida para vos.",requestPrompt:row.settings?.request_prompt||"",orderQuestions:row.settings?.order_questions,galleryImages:(Array.isArray(row.settings?.gallery_images)?row.settings.gallery_images:[]).slice(0,2).map(image=>publicStorageUrl(typeof image==="string"?image:image?.path)).filter(Boolean),minQuantity:row.min_quantity||1,startingPriceUyu:row.settings&&"starting_price_uyu" in row.settings?row.settings.starting_price_uyu:initialCatalogPrices[row.id]??null,featured:Boolean(row.featured),sortOrder:Number(row.sort_order||0),featuredOrder:Number(row.settings?.featured_order??row.sort_order??0),publicationStatus:row.publication_status||"published",imageUrl:publicStorageUrl(row.image_path),imageAlt:row.image_alt||row.name,badge:row.badge||"",imagePositionX:Number(row.settings?.image_position_x??50),imagePositionY:Number(row.settings?.image_position_y??50),imageZoom:Number(row.settings?.image_zoom??1),imageFit:row.settings?.image_fit==="contain"?"contain":"cover",imageBackground:/^#[0-9a-f]{6}$/i.test(row.settings?.image_background||"")?row.settings.image_background:"#d9dcdf",source:"supabase"}));
       const nextSignature=JSON.stringify(nextProducts);
       if(nextSignature===remoteCatalogSignature)return;
       const previous=state.current?.id;
@@ -593,7 +596,7 @@
       <button class="product-open" type="button" aria-label="Ver ${product.name}">
       <div class="product-image-wrap"><img class="${product.source==="supabase"?"managed-product-image":""}" data-product-image src="${imageFor(product)}" alt="${escapeText(product.imageAlt||product.name)}" loading="lazy" decoding="async" style="${productImageStyle(product)}">${upcoming?'<span class="coming-overlay">Próximamente</span>':""}<span class="product-icon"><i class="ph ${product.icon}" aria-hidden="true"></i></span></div>
       <span class="product-badge">${escapeText(product.badge||product.group.split(" · ")[0])}</span>
-      <h3>${product.name}</h3><p>${product.detail}</p></button>
+      <h3>${product.name}</h3><p>${product.detail}</p>${startingPrice(product)!==null?`<div class="product-starting-price"><small>DESDE</small><strong>${startingPriceLabel(product)}</strong></div>`:""}</button>
       <div class="product-card-footer"><span>${upcoming?"Consultar":"Configurar"}</span><button data-configure="${product.id}" aria-label="${upcoming?"Consultar":"Configurar"} ${product.name}"><i class="ph ph-arrow-right"></i></button></div>
     </article>`;
   }
@@ -822,7 +825,7 @@
       <div class="detail-info">
         <div class="detail-top" data-entry><button class="round" data-back aria-label="Volver"><i class="ph ph-arrow-left" aria-hidden="true"></i></button><div><button class="round favorite-button ${state.favorites.has(product.id)?"active":""}" id="save-product" aria-label="${state.favorites.has(product.id)?"Quitar de guardados":"Guardar para más tarde"}" aria-pressed="${state.favorites.has(product.id)}"><i class="ph ph-heart" aria-hidden="true"></i></button><button class="round" data-route="request" aria-label="Solicitud"><i class="ph ph-bag" aria-hidden="true"></i></button></div></div>
         <span class="detail-group" data-entry>${product.group}</span><h1 data-entry>${product.name}</h1><p class="detail-description" data-entry>${product.detail}</p>
-        <div class="detail-metrics" data-entry><div><small>Pedido mínimo</small><strong>${minimum} ${minimum===1?"unidad":"unidades"}</strong></div><div><small>Producción</small><strong>Local</strong></div></div>
+        <div class="detail-metrics" data-entry>${startingPrice(product)!==null?`<div class="detail-starting-price"><span><small>PRECIO DESDE</small><strong>${startingPriceLabel(product)} <em>/ unidad</em></strong></span><p>El precio final se confirma según la personalización y la cantidad.</p></div>`:""}<div><small>Pedido mínimo</small><strong>${minimum} ${minimum===1?"unidad":"unidades"}</strong></div><div><small>Producción</small><strong>Local</strong></div></div>
         <div class="detail-assurance" data-entry><span><i class="ph ph-check-circle" aria-hidden="true"></i> Material según el uso</span><span><i class="ph ph-check-circle" aria-hidden="true"></i> Precio y plazo antes de fabricar</span><span><i class="ph ph-check-circle" aria-hidden="true"></i> No necesitás archivo 3D</span></div>
         <section class="product-config product-wizard" data-entry>
           <div class="product-wizard-top"><div><span>PEDÍ ESTE PRODUCTO</span><strong>Paso ${String(state.detailStep+1).padStart(2,"0")} de ${String(totalSteps).padStart(2,"0")}</strong></div><div class="product-wizard-progress" aria-label="${progress}% completo"><i style="width:${progress}%"></i></div></div>
