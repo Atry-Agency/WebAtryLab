@@ -140,7 +140,7 @@
     try{
       const rows=await supabaseRpc("get_public_catalog");
       if(!Array.isArray(rows)||(!rows.length&&!remoteCatalogSignature))return;
-      const nextProducts=rows.map(row=>({id:row.id,name:row.name,group:row.category,icon:row.settings?.icon||"ph-cube",detail:row.description||"Lo preparamos a medida para vos.",requestPrompt:row.settings?.request_prompt||"",orderQuestions:row.settings?.order_questions,minQuantity:row.min_quantity||1,featured:Boolean(row.featured),publicationStatus:row.publication_status||"published",imageUrl:publicStorageUrl(row.image_path),imageAlt:row.image_alt||row.name,badge:row.badge||"",imagePositionX:Number(row.settings?.image_position_x??50),imagePositionY:Number(row.settings?.image_position_y??50),imageZoom:Number(row.settings?.image_zoom??1),imageFit:row.settings?.image_fit==="contain"?"contain":"cover",imageBackground:/^#[0-9a-f]{6}$/i.test(row.settings?.image_background||"")?row.settings.image_background:"#d9dcdf",source:"supabase"}));
+      const nextProducts=rows.map(row=>({id:row.id,name:row.name,group:row.category,icon:row.settings?.icon||"ph-cube",detail:row.description||"Lo preparamos a medida para vos.",requestPrompt:row.settings?.request_prompt||"",orderQuestions:row.settings?.order_questions,galleryImages:(Array.isArray(row.settings?.gallery_images)?row.settings.gallery_images:[]).slice(0,2).map(image=>publicStorageUrl(typeof image==="string"?image:image?.path)).filter(Boolean),minQuantity:row.min_quantity||1,featured:Boolean(row.featured),publicationStatus:row.publication_status||"published",imageUrl:publicStorageUrl(row.image_path),imageAlt:row.image_alt||row.name,badge:row.badge||"",imagePositionX:Number(row.settings?.image_position_x??50),imagePositionY:Number(row.settings?.image_position_y??50),imageZoom:Number(row.settings?.image_zoom??1),imageFit:row.settings?.image_fit==="contain"?"contain":"cover",imageBackground:/^#[0-9a-f]{6}$/i.test(row.settings?.image_background||"")?row.settings.image_background:"#d9dcdf",source:"supabase"}));
       const nextSignature=JSON.stringify(nextProducts);
       if(nextSignature===remoteCatalogSignature)return;
       const previous=state.current?.id;
@@ -334,7 +334,7 @@
   const state = {
     route:"home", current:products[0], category:"Todos", search:"", catalogLimit:12, items:Array.isArray(storedItems)?storedItems:[],
     quantity:"",customQuantity:"",size:"",colors:new Set(),design:"Necesito ayuda",deadline:"",deadlineDate:"",file:"",files:[],fileObjects:[],
-    answers:{},productRequestMode:"",filePreview:"",filePreviews:[],customerName:"", customerContext:"", customerMessage:"",
+    answers:{},productRequestMode:"",detailImageIndex:0,filePreview:"",filePreviews:[],customerName:"", customerContext:"", customerMessage:"",
     customerPhone:"",customerEmail:"",customerDeliveryMethod:"shipping",customerDepartment:"Montevideo",customerCity:"",customerAddress:"",customerDeliveryNotes:"",submittedRequestId:"",favorites:new Set(readStorage(STORAGE_FAVORITES,[])),editingUid:"",origin:null,messageWasCompacted:false,builderStep:0,detailStep:0,
     builder:emptyBuilder()
   };
@@ -403,7 +403,7 @@
     state.editingUid="";
     if(next.route==="detail"){
       if(state.current.id!==next.product.id){
-        state.current=next.product;state.detailStep=0;state.productRequestMode="";state.answers={};
+        state.current=next.product;state.detailStep=0;state.productRequestMode="";state.detailImageIndex=0;state.answers={};
         state.quantity="";state.customQuantity="";state.deadline="";state.deadlineDate="";state.file="";state.files=[];state.fileObjects=[];state.filePreview="";state.filePreviews=[];
       }
     }
@@ -455,6 +455,7 @@
     if(/A medida/.test(product.group))return "recursos/imagenes/referencias/prototipos.jpg";
     return "recursos/imagenes/referencias/marca.jpg";
   }
+  function productPhotos(product){return [imageFor(product),...(product.galleryImages||[])].filter((src,index,list)=>src&&list.indexOf(src)===index).slice(0,3);}
 
   function productImageStyle(product,showFull=false){
     const x=showFull?50:Math.min(100,Math.max(0,Number(product?.imagePositionX??50)));const y=showFull?50:Math.min(100,Math.max(0,Number(product?.imagePositionY??50)));const zoom=showFull?1:Math.min(2.4,Math.max(.7,Number(product?.imageZoom??1)));const fit=showFull?"contain":product?.imageFit==="contain"?"contain":"cover";const background=/^#[0-9a-f]{6}$/i.test(product?.imageBackground||"")?product.imageBackground:"#d9dcdf";
@@ -759,6 +760,7 @@
     const product=state.current;
     const profile=productRequestProfile(product);
     const minimum=minimumQuantity(product);
+    const photos=productPhotos(product),selectedIndex=Math.min(state.detailImageIndex,photos.length-1),selectedPhoto=photos[selectedIndex];
     const totalSteps=detailStepCount(profile);const progress=Math.round((state.detailStep+1)/totalSteps*100);
     return `<section class="detail">
       <div class="detail-info">
@@ -776,7 +778,10 @@
           </div>
         </section>
       </div>
-      <div class="detail-visual" data-entry><div class="detail-halo"></div><img id="product-detail-image" src="${imageFor(product)}" alt="${product.name}" style="${productImageStyle(product,true)}"><span class="detail-visual-label"><i class="ph ${product.icon}"></i>${product.name}</span></div>
+      <div class="detail-visual ${photos.length>1?"has-gallery":"single-image"}" data-entry aria-label="Fotos de ${escapeText(product.name)}">
+        ${photos.length>1?`<div class="detail-gallery-rail" role="group" aria-label="Elegir foto del producto">${photos.map((src,index)=>`<button type="button" data-gallery-index="${index}" class="${selectedIndex===index?"active":""}" aria-label="Ver foto ${index+1} de ${photos.length}" aria-pressed="${selectedIndex===index}"><img src="${escapeText(src)}" alt="" loading="lazy"></button>`).join("")}</div>`:""}
+        <figure class="detail-gallery-stage" style="${productImageStyle(product,true)}"><img id="product-detail-image" src="${escapeText(selectedPhoto)}" alt="${escapeText(selectedIndex===0?product.imageAlt||product.name:`Foto ${selectedIndex+1} de ${product.name}`)}"><figcaption><span>ATRY LAB · ${escapeText(product.group.split(" · ")[0])}</span>${photos.length>1?`<span data-gallery-counter>${String(selectedIndex+1).padStart(2,"0")} / ${String(photos.length).padStart(2,"0")}</span>`:""}</figcaption></figure>
+      </div>
     </section>`;
   }
 
@@ -922,7 +927,7 @@
   async function openProduct(id,image){
     const product=products.find(item=>item.id===id); if(!product)return;
     state.origin={route:state.route,category:state.category,search:state.search,scrollTop:view.scrollTop,windowY:window.scrollY};
-    await travelProduct({source:image,destinationSelector:"#product-detail-image",src:imageFor(product),update:()=>{state.current=product;state.editingUid="";state.detailStep=0;state.productRequestMode="";state.answers={};state.quantity="";state.customQuantity="";state.deadline="";state.deadlineDate="";state.file="";state.files=[];state.fileObjects=[];state.filePreview="";state.filePreviews=[];state.route="detail";navigateToRoute("detail",{product,renderRoute:false});render({entry:false});}});
+    await travelProduct({source:image,destinationSelector:"#product-detail-image",src:imageFor(product),update:()=>{state.current=product;state.editingUid="";state.detailStep=0;state.productRequestMode="";state.detailImageIndex=0;state.answers={};state.quantity="";state.customQuantity="";state.deadline="";state.deadlineDate="";state.file="";state.files=[];state.fileObjects=[];state.filePreview="";state.filePreviews=[];state.route="detail";navigateToRoute("detail",{product,renderRoute:false});render({entry:false});}});
   }
 
   async function addCurrent(){
@@ -985,7 +990,7 @@
     const item=state.items.find(entry=>entry.uid===uid);if(!item)return;state.editingUid=uid;
     state.origin={route:"request",category:state.category,search:state.search,scrollTop:0,windowY:0};
     if(item.id==="custom"){const standard=["1","10","25","50","100","250+"];const type=item.answers?.tipo||item.group.split(" · ")[0]||"";const environments=Array.isArray(item.answers?.entorno)?item.answers.entorno:String(item.answers?.entorno||"").split(" · ").filter(Boolean);const personalization=Array.isArray(item.answers?.personalizacion)?item.answers.personalizacion:String(item.answers?.personalizacion||"").split(" · ").filter(value=>value&&value!=="A definir");state.builder={...state.builder,type,use:type,details:{personalizacion:personalization},environment:environments,measure:item.answers?.medidas==="A definir"?"":item.answers?.medidas||"",quantity:standard.includes(item.quantity)?item.quantity:"Otra",customQuantity:standard.includes(item.quantity)?"":item.quantity,size:"",deadline:item.deadline||"",deadlineDate:item.deadlineDate||"",file:item.file||"",files:item.files||(item.file?[item.file]:[]),fileObjects:item.fileObjects||[],filePreview:item.referencePreview||"",filePreviews:item.referencePreviews||[],idea:item.idea||item.answers?.idea||""};state.builderStep=0;state.route="builder";navigateToRoute("builder",{renderRoute:false});render();return;}
-    const product=products.find(entry=>entry.id===item.id);if(!product)return;const standard=["1","10","25","50","100","250+"];state.current=product;state.quantity=standard.includes(item.quantity)?item.quantity:"Otra";state.customQuantity=standard.includes(item.quantity)?"":item.quantity;state.answers=item.answers?{...item.answers}:{};state.productRequestMode=item.answers?.modalidad==="Personalizar este producto"?"customize":"as_shown";state.deadline=item.deadline||"";state.deadlineDate=item.deadlineDate||"";state.file=item.file||"";state.files=item.files||(item.file?[item.file]:[]);state.fileObjects=item.fileObjects||[];state.filePreview=item.referencePreview||"";state.filePreviews=item.referencePreviews||[];state.detailStep=detailStepCount(productRequestProfile(product))-1;state.route="detail";navigateToRoute("detail",{product,renderRoute:false});render();
+    const product=products.find(entry=>entry.id===item.id);if(!product)return;const standard=["1","10","25","50","100","250+"];state.current=product;state.detailImageIndex=0;state.quantity=standard.includes(item.quantity)?item.quantity:"Otra";state.customQuantity=standard.includes(item.quantity)?"":item.quantity;state.answers=item.answers?{...item.answers}:{};state.productRequestMode=item.answers?.modalidad==="Personalizar este producto"?"customize":"as_shown";state.deadline=item.deadline||"";state.deadlineDate=item.deadlineDate||"";state.file=item.file||"";state.files=item.files||(item.file?[item.file]:[]);state.fileObjects=item.fileObjects||[];state.filePreview=item.referencePreview||"";state.filePreviews=item.referencePreviews||[];state.detailStep=detailStepCount(productRequestProfile(product))-1;state.route="detail";navigateToRoute("detail",{product,renderRoute:false});render();
   }
 
   function buildMessage(compact=false){
@@ -1165,6 +1170,7 @@
     view.querySelectorAll("[data-product-request-mode]").forEach(button=>button.addEventListener("click",()=>{state.productRequestMode=button.dataset.productRequestMode;moveDetailStep(1,1);}));
     view.querySelector("[data-detail-next]")?.addEventListener("click",()=>{const profile=productRequestProfile(state.current);const issue=detailStepIssue(profile);if(issue){notify(issue);const card=view.querySelector(".product-wizard-card");if(card&&!matchMedia("(prefers-reduced-motion: reduce)").matches)card.animate([{transform:"translateX(0)"},{transform:"translateX(-5px)"},{transform:"translateX(5px)"},{transform:"translateX(0)"}],{duration:260});card?.querySelector("input,textarea,button")?.focus();return;}moveDetailStep(state.detailStep+1,1);});
     view.querySelector("[data-detail-prev]")?.addEventListener("click",()=>moveDetailStep(state.detailStep-1,-1));
+    view.querySelectorAll("[data-gallery-index]").forEach(button=>button.addEventListener("click",()=>{const photos=productPhotos(state.current),index=Number(button.dataset.galleryIndex);if(!photos[index])return;state.detailImageIndex=index;const image=view.querySelector("#product-detail-image");if(image){image.src=photos[index];image.alt=index===0?state.current.imageAlt||state.current.name:`Foto ${index+1} de ${state.current.name}`;if(!matchMedia("(prefers-reduced-motion: reduce)").matches)image.animate([{opacity:.4,transform:"scale(.985)"},{opacity:1,transform:"scale(1)"}],{duration:260,easing:"ease-out"});}view.querySelectorAll("[data-gallery-index]").forEach(entry=>{const active=Number(entry.dataset.galleryIndex)===index;entry.classList.toggle("active",active);entry.setAttribute("aria-pressed",String(active));});const counter=view.querySelector("[data-gallery-counter]");if(counter)counter.textContent=`${String(index+1).padStart(2,"0")} / ${String(photos.length).padStart(2,"0")}`;}));
     view.querySelector("#save-product")?.addEventListener("click",()=>{const id=state.current.id;if(state.favorites.has(id)){state.favorites.delete(id);notify("Quitado de guardados");}else{state.favorites.add(id);notify("Guardado para más tarde");}persistFavorites();render({scroll:false,entry:false});});
     view.querySelectorAll("[data-edit]").forEach(button=>button.addEventListener("click",()=>editItem(button.dataset.edit)));
     view.querySelectorAll("[data-remove]").forEach(button=>button.addEventListener("click",()=>{state.items=state.items.filter(item=>item.uid!==button.dataset.remove);persistRequest();render({scroll:false});notify("Opción quitada");}));
