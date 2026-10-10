@@ -141,7 +141,7 @@
     activeSiteTheme=next;
     if(next==="original")delete document.documentElement.dataset.siteTheme;
     else document.documentElement.dataset.siteTheme=next;
-    const browserColors={original:"#faf9f7",valentines:"#f9e9ef",halloween:"#eee0cf",christmas:"#e5f1e9"};
+    const browserColors={original:"#faf9f7",valentines:"#f9e9ef",halloween:"#1b1a1d",christmas:"#f3e7e6"};
     document.querySelector('meta[name="theme-color"]')?.setAttribute("content",browserColors[next]);
     return true;
   }
@@ -610,7 +610,8 @@
     if(activeSiteTheme==="original")return "";
     const particles=Array.from({length:activeSiteTheme==="christmas"?16:8},()=>'<span class="seasonal-particle"></span>').join("");
     const bat='<svg class="seasonal-bat" viewBox="0 0 120 60"><path d="M60 24 50 12l-6 8C31 8 16 13 2 4c6 15 10 27 22 30-4 5-5 10-4 17 10-13 20-17 40-10 20-7 30-3 40 10 1-7 0-12-4-17 12-3 16-15 22-30-14 9-29 4-42 16l-6-8z"/></svg>';
-    return `<div class="seasonal-atmosphere" aria-hidden="true">${particles}${activeSiteTheme==="halloween"?bat+bat:""}</div>`;
+    const moon='<img class="seasonal-moon" src="recursos/imagenes/halloween-moon.png" alt="" aria-hidden="true">';
+    return `<div class="seasonal-atmosphere" aria-hidden="true">${particles}${activeSiteTheme==="halloween"?moon+bat+bat:""}</div>`;
   }
 
   function home(catalog=false){
