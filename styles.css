@@ -638,6 +638,10 @@ button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible,
 .review-card blockquote{color:#e5f0f2}
 .review-card strong{color:#f8fcfd}
 .review-card small{color:#9db4bc}
+.reviews-track{animation-duration:var(--review-duration,24s)}
+.reviews-track.single{animation:none}
+.review-card>.review-image-empty{height:244px;display:grid;place-items:center;border-radius:21px;color:#9db4bc;background:#12262e;font-size:42px}
+@media(max-width:767px){.review-card>.review-image-empty{height:200px}}
 .review-rating>b{color:#b8cbd0}
 
 .floating-whatsapp,.whatsapp-button{border-color:rgba(176,237,247,.27);color:#fff;background:radial-gradient(circle at 72% 18%,#187188,#103743 45%,#0a1a21);box-shadow:0 16px 38px rgba(8,45,57,.28),inset 0 1px 0 rgba(255,255,255,.12)}

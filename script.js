@@ -126,6 +126,13 @@
 
   const supabaseConfig=window.ATRY_SUPABASE_CONFIG||{};
   const catalogPlaceholder="recursos/imagenes/proximamente-atry.svg?v=3";
+  const defaultExperiences={eyebrow:"EXPERIENCIAS ATRY",title:"Ideas que ya tomaron forma.",cards:[
+    {image:"recursos/imagenes/productos/llaveros.png",rating:4,quote:"Pedimos una tanda de llaveros para acompañar nuestros pedidos. Quedaron prolijos, resistentes y cada diseño se distinguía muy bien.",client:"Emprendimiento local",product:"Llaveros personalizados"},
+    {image:"recursos/imagenes/productos/trofeos-atry.png",rating:4.5,quote:"Necesitábamos un trofeo especial para un torneo y nos ayudaron a llevar la idea a una pieza real. El resultado superó lo que imaginábamos.",client:"Organización de torneo",product:"Trofeo personalizado"},
+    {image:"recursos/imagenes/productos/porta-qr-atry.png",rating:5,quote:"El porta QR quedó firme, fácil de limpiar y combinó perfecto con el mostrador. La atención fue clara desde el principio.",client:"Comercio gastronómico",product:"Porta QR para mostrador"},
+    {image:"recursos/imagenes/productos/souvenirs-atry.png",rating:4.5,quote:"Los souvenirs del bautismo quedaron delicados y tal como los habíamos pensado. Además, estuvieron prontos para la fecha acordada.",client:"Bautismo familiar",product:"Souvenirs para bautismo"}
+  ]};
+  let experiences=defaultExperiences,experiencesSignature="";
   let remoteCatalogSignature="",catalogSyncBusy=false,catalogRenderPending=false,catalogRealtimeChannel=null;
   function publicStorageUrl(path){return path&&supabaseConfig.url?`${supabaseConfig.url}/storage/v1/object/public/catalog-images/${String(path).split("/").map(encodeURIComponent).join("/")}`:"";}
   async function supabaseRpc(name,payload={}){
@@ -133,6 +140,21 @@
     const response=await fetch(`${supabaseConfig.url}/rest/v1/rpc/${name}`,{method:"POST",headers:{apikey:supabaseConfig.publishableKey,Authorization:`Bearer ${supabaseConfig.publishableKey}`,"Content-Type":"application/json"},body:JSON.stringify(payload)});
     if(!response.ok)throw new Error((await response.text())||`Error ${response.status}`);
     return response.json();
+  }
+  function experienceImageUrl(image){
+    if(typeof image!=="string")return "";
+    if(image.startsWith("storage:"))return publicStorageUrl(image.slice(8));
+    return /^recursos\/imagenes\/[a-z0-9/._-]+$/i.test(image)?image:"";
+  }
+  async function loadRemoteExperiences(){
+    try{
+      const value=await supabaseRpc("get_public_experiences");
+      if(!value||!Array.isArray(value.cards))return;
+      const next={eyebrow:String(value.eyebrow||""),title:String(value.title||""),cards:value.cards.filter(card=>card&&typeof card==="object").map(card=>({image:experienceImageUrl(card.image),rating:Math.max(0,Math.min(5,Number(card.rating)||0)),quote:String(card.quote||""),client:String(card.client||""),product:String(card.product||"")}))};
+      const signature=JSON.stringify(next);if(signature===experiencesSignature)return;
+      experiences=next;experiencesSignature=signature;
+      if(state.route==="home"&&!view.querySelector("input:focus,textarea:focus,select:focus"))render({scroll:false,entry:false});
+    }catch(error){console.warn("Experiencias remotas no disponibles; se mantiene la versión local.",error);}
   }
   async function loadRemoteCatalog(){
     if(catalogSyncBusy)return;
@@ -158,7 +180,9 @@
       catalogRealtimeChannel=liveClient.channel("atry-public-catalog-live").on("postgres_changes",{event:"*",schema:"public",table:"catalog_items"},loadRemoteCatalog).subscribe();
     }
     window.setInterval(()=>{if(!document.hidden)loadRemoteCatalog();},5000);
+    window.setInterval(()=>{if(!document.hidden)loadRemoteExperiences();},20000);
     window.addEventListener("focus",loadRemoteCatalog);
+    window.addEventListener("focus",loadRemoteExperiences);
     document.addEventListener("visibilitychange",()=>{if(!document.hidden)loadRemoteCatalog();});
     document.addEventListener("focusout",()=>{if(catalogRenderPending)setTimeout(()=>{if(!view.querySelector("input:focus,textarea:focus,select:focus")){catalogRenderPending=false;render({scroll:false,entry:false});}},80);});
   }
@@ -558,16 +582,8 @@
 
   function home(catalog=false){
     const list=filteredProducts(catalog?undefined:8);
-    const reviewRatings=[4,4.5,5,4.5];
-    const reviewQuotes=[
-      "Pedimos una tanda de llaveros para acompañar nuestros pedidos. Quedaron prolijos, resistentes y cada diseño se distinguía muy bien.",
-      "Necesitábamos un trofeo especial para un torneo y nos ayudaron a llevar la idea a una pieza real. El resultado superó lo que imaginábamos.",
-      "El porta QR quedó firme, fácil de limpiar y combinó perfecto con el mostrador. La atención fue clara desde el principio.",
-      "Los souvenirs del bautismo quedaron delicados y tal como los habíamos pensado. Además, estuvieron prontos para la fecha acordada."
-    ];
-    const reviewClients=["Emprendimiento local","Organización de torneo","Comercio gastronómico","Bautismo familiar"];
-    const reviewProducts=["Llaveros personalizados","Trofeo personalizado","Porta QR para mostrador","Souvenirs para bautismo"];
     const reviewRating=rating=>`<span class="review-rating" aria-label="${String(rating).replace('.',',')} de 5 estrellas"><span class="review-stars" aria-hidden="true">${Array.from({length:5},(_,index)=>index+1<=Math.floor(rating)?`<i class="ph ph-star"></i>`:index<rating?`<i class="ph ph-star-half"></i>`:`<i class="ph ph-star review-star-empty"></i>`).join("")}</span><b>${String(rating).replace('.',',')}</b></span>`;
+    const experiencesMarkup=experiences.cards.length?`<section class="reviews-section" data-entry><div class="reviews-head"><small>${escapeText(experiences.eyebrow)}</small><h2>${escapeText(experiences.title)}</h2></div><div class="reviews-window"><div class="reviews-track ${experiences.cards.length===1?"single":""}" style="--review-duration:${Math.max(24,experiences.cards.length*6)}s">${experiences.cards.map(card=>`<article class="review-card">${card.image?`<img src="${escapeText(card.image)}" alt="${escapeText(card.product)}">`:`<div class="review-image-empty"><i class="ph ph-image-square" aria-hidden="true"></i></div>`}<div>${reviewRating(card.rating)}<blockquote>“${escapeText(card.quote)}”</blockquote><strong>${escapeText(card.client)}</strong><small>${escapeText(card.product)}</small></div></article>`).join("")}</div></div></section>`:"";
     return `<section class="home-hero">
       <div class="hero-copy" data-entry>
         <div class="location-line"><span class="location-icon"><i class="ph ph-map-pin"></i></span><span><small>Diseñamos y producimos en</small><strong>Montevideo, Uruguay</strong></span></div>
@@ -596,7 +612,7 @@
       <article class="volume-card" data-route="business" data-entry><small>PRODUCCIÓN POR CANTIDAD</small><h2>De una muestra.<br><span>A toda una producción.</span></h2><p>Probamos, ajustamos y fabricamos la cantidad que necesites.</p><i class="ph ph-arrow-up-right"></i></article>
       <div class="service-cards"><article data-entry><i class="ph ph-pencil-ruler"></i><b>Diseño incluido</b><p>Nos das la idea. Nosotros nos encargamos del diseño.</p></article><article data-entry><i class="ph ph-cube-transparent"></i><b>Probá antes de producir</b><p>Creamos una muestra para validar el diseño antes de producir en cantidad.</p></article><article data-entry><i class="ph ph-whatsapp-logo"></i><b>Hablás con nosotros</b><p>Sin procesos complicados. Te acompañamos desde la idea hasta la producción.</p></article></div>
     </section><section class="trust-section" data-entry><div><small>ANTES DE COTIZAR</small><h2>Todo claro desde el principio.</h2></div><div class="trust-grid"><article><span class="trust-icon" data-morph="trust-ruler"><i class="ph ph-ruler"></i></span><b>Materiales</b><p>Elegimos el material según el uso de cada pieza.</p></article><article><span class="trust-icon" data-morph="trust-clock"><i class="ph ph-clock"></i></span><b>Tiempos de entrega</b><p>Te confirmamos el plazo antes de producir.</p></article><article><span class="trust-icon" data-morph="trust-truck"><i class="ph ph-truck"></i></span><b>Entrega coordinada</b><p>Coordinamos envío o retiro con vos.</p></article><article><span class="trust-icon" data-morph="trust-card"><i class="ph ph-credit-card"></i></span><b>Medios de pago</b><p>Transferencia, Mercado Pago y otras opciones.</p></article></div></section>
-    <section class="reviews-section" data-entry><div class="reviews-head"><small>EXPERIENCIAS ATRY</small><h2>Ideas que ya tomaron forma.</h2></div><div class="reviews-window"><div class="reviews-track">${Array.from({length:4},(_,index)=>`<article class="review-card"> <img src="${["recursos/imagenes/productos/llaveros.png","recursos/imagenes/productos/trofeos-atry.png","recursos/imagenes/productos/porta-qr-atry.png","recursos/imagenes/productos/souvenirs-atry.png"][index]}" alt="Producto realizado por ATRY LAB"><div>${reviewRating(reviewRatings[index])}<blockquote>“${reviewQuotes[index]}”</blockquote><strong>${reviewClients[index]}</strong><small>${reviewProducts[index]}</small></div></article>`).join("")}</div></div></section>`:""}`;
+    ${experiencesMarkup}`:""}`;
   }
 
   function catalog(){
@@ -1202,4 +1218,5 @@
   window.addEventListener("hashchange",handleRoute);
   handleRoute();
   loadRemoteCatalog().finally(startCatalogLiveSync);
+  loadRemoteExperiences();
 })();
