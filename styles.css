@@ -945,7 +945,31 @@ body.confirm-open{overflow:hidden}.whatsapp-confirm-backdrop{position:fixed;z-in
   .detail h1{order:2}
   .detail-description{order:3}
   .detail-metrics{order:4}
-  .detail-assurance{order:5}
-  .detail-visual,.detail-visual.has-gallery,.detail-visual.single-image{order:6;position:relative;top:auto;width:min(100%,620px);min-height:0;align-self:center;margin:20px 0 0}
-  .detail-info>.product-wizard{order:7;width:100%;margin-top:28px}
+  .detail-request-shortcut{order:5;justify-self:start}
+  .detail-assurance{order:6}
+  .detail-visual,.detail-visual.has-gallery,.detail-visual.single-image{order:7;position:relative;top:auto;width:min(100%,540px);min-height:0;align-self:center;margin:20px 0 0}
+  .detail-info>.product-wizard{order:8;width:100%;margin-top:28px;scroll-margin-top:106px}
+}
+
+/* Navegación compacta y acceso directo al pedido en tablet. */
+.tablet-menu,.detail-request-shortcut{display:none}
+@media(min-width:768px) and (max-width:950px){
+  .desktop-header{height:72px}
+  .desktop-nav{display:none}
+  .tablet-menu{position:relative;display:block;margin-left:auto;margin-right:20px}
+  .tablet-menu summary{min-height:42px;padding:0 14px;display:flex;align-items:center;gap:8px;list-style:none;border:1px solid #d6e7ea;border-radius:13px;color:#113c47;background:#fff;cursor:pointer;font-size:12px;font-weight:600}
+  .tablet-menu summary::-webkit-details-marker{display:none}
+  .tablet-menu summary i:first-child{font-size:19px}
+  .tablet-menu summary i:last-child{margin-left:4px;color:#6d8990;font-size:12px;transition:transform .2s}
+  .tablet-menu[open] summary i:last-child{transform:rotate(180deg)}
+  .tablet-menu summary:focus-visible{outline:3px solid #63c7d9;outline-offset:2px}
+  .tablet-menu nav{width:220px;padding:7px;position:absolute;z-index:50;top:calc(100% + 10px);right:0;display:grid;gap:2px;border:1px solid #d6e7ea;border-radius:17px;background:#fff;box-shadow:0 20px 42px rgba(10,47,58,.16)}
+  .tablet-menu nav button{min-height:43px;padding:0 12px;border:0;border-radius:10px;color:#163944;background:transparent;text-align:left;font-size:12px;cursor:pointer}
+  .tablet-menu nav button:hover,.tablet-menu nav button:focus-visible{background:#eaf7f9}
+}
+@media(min-width:768px) and (max-width:1100px){
+  .detail-request-shortcut{width:max-content;min-height:43px;margin:2px 0 15px;padding:0 16px;display:inline-flex;align-items:center;gap:13px;border:1px solid #0e5060;border-radius:12px;color:#f6fdfe;background:#0e3a45;box-shadow:0 10px 20px rgba(13,59,71,.13);font-size:12px;font-weight:700;cursor:pointer}
+  .detail-request-shortcut:hover{background:#0a6679}
+  .detail-request-shortcut:focus-visible{outline:3px solid #64c9dc;outline-offset:3px}
+  .detail-request-shortcut i{font-size:17px}
 }

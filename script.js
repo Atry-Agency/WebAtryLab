@@ -830,8 +830,9 @@
         <div class="detail-top" data-entry><button class="round" data-back aria-label="Volver"><i class="ph ph-arrow-left" aria-hidden="true"></i></button><div><button class="round favorite-button ${state.favorites.has(product.id)?"active":""}" id="save-product" aria-label="${state.favorites.has(product.id)?"Quitar de guardados":"Guardar para más tarde"}" aria-pressed="${state.favorites.has(product.id)}"><i class="ph ph-heart" aria-hidden="true"></i></button><button class="round" data-route="request" aria-label="Solicitud"><i class="ph ph-bag" aria-hidden="true"></i></button></div></div>
         <span class="detail-group" data-entry>${product.group}</span><h1 data-entry>${product.name}</h1><p class="detail-description" data-entry>${product.detail}</p>
         <div class="detail-metrics" data-entry>${startingPrice(product)!==null?`<div class="detail-starting-price"><span><small>PRECIO DESDE</small><strong>${startingPriceLabel(product)} <em>/ unidad</em></strong></span><p>El precio final se confirma según la personalización y la cantidad.</p></div>`:""}<div><small>Pedido mínimo</small><strong>${minimum} ${minimum===1?"unidad":"unidades"}</strong></div><div><small>Producción</small><strong>Local</strong></div></div>
+        <button type="button" class="detail-request-shortcut" data-jump-request aria-controls="product-request">Empezar solicitud <i class="ph ph-arrow-down-right" aria-hidden="true"></i></button>
         <div class="detail-assurance" data-entry><span><i class="ph ph-check-circle" aria-hidden="true"></i> Material según el uso</span><span><i class="ph ph-check-circle" aria-hidden="true"></i> Precio y plazo antes de fabricar</span><span><i class="ph ph-check-circle" aria-hidden="true"></i> No necesitás archivo 3D</span></div>
-        <section class="product-config product-wizard" data-entry>
+        <section class="product-config product-wizard" id="product-request" data-entry>
         <div class="product-wizard-top"><div><span>PEDÍ ESTE PRODUCTO</span><strong>Paso ${String(state.detailStep+1).padStart(2,"0")} de ${String(totalSteps).padStart(2,"0")}</strong></div><div class="product-wizard-progress" aria-label="${progress}% completo"><i style="width:${progress}%"></i></div></div>
         <div class="form-alert" id="form-alert" hidden></div>
         <div class="product-wizard-card">${detailWizardField(profile)}</div>
@@ -1164,6 +1165,9 @@
   }
 
   function bindEvents(){
+    view.querySelector("[data-jump-request]")?.addEventListener("click",()=>{
+      view.querySelector("#product-request")?.scrollIntoView({behavior:matchMedia("(prefers-reduced-motion: reduce)").matches?"auto":"smooth",block:"start"});
+    });
     view.querySelectorAll("[data-back]").forEach(button=>button.addEventListener("click",()=>{const origin=state.origin||{route:"home",scrollTop:0,windowY:0};const root=document.documentElement;const previousBehavior=root.style.scrollBehavior;root.style.scrollBehavior="auto";state.editingUid="";state.route=origin.route||"home";state.category=origin.category||state.category;state.search=origin.search||"";navigateToRoute(state.route,{renderRoute:false});render({scroll:false,entry:false});view.scrollTop=origin.scrollTop||0;window.scrollTo({top:origin.windowY||0,left:0,behavior:"auto"});requestAnimationFrame(()=>{root.style.scrollBehavior=previousBehavior;});}));
     view.querySelectorAll("[data-route]").forEach(button=>button.addEventListener("click",()=>{state.editingUid="";navigateToRoute(button.dataset.route);}));
     view.querySelector("[data-new-builder]")?.addEventListener("click",()=>{resetBuilderDraft();navigateToRoute("builder");});
@@ -1238,7 +1242,9 @@
   }
 
   document.addEventListener("click",event=>{
+    if(!event.target.closest(".tablet-menu"))document.querySelector(".tablet-menu")?.removeAttribute("open");
     const route=event.target.closest("[data-route]");if(route&&!view.contains(route)){state.editingUid="";const nextRoute=route.dataset.route;if(nextRoute==="catalog"||nextRoute==="home"){state.category="Todos";state.search="";state.catalogLimit=12;}navigateToRoute(nextRoute);}
+    if(event.target.closest(".tablet-menu button"))document.querySelector(".tablet-menu")?.removeAttribute("open");
     if(event.target.closest("[data-contact]")){state.editingUid="";state.search="";state.category="Todos";navigateToRoute("home");setTimeout(()=>view.querySelector("#contacto")?.scrollIntoView({behavior:"smooth",block:"start"}),60);}
     if(event.target.closest("[data-focus-search]")){navigateToRoute("catalog");setTimeout(()=>view.querySelector("#search")?.focus(),40);}
   });
