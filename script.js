@@ -831,12 +831,7 @@
         <span class="detail-group" data-entry>${product.group}</span><h1 data-entry>${product.name}</h1><p class="detail-description" data-entry>${product.detail}</p>
         <div class="detail-metrics" data-entry>${startingPrice(product)!==null?`<div class="detail-starting-price"><span><small>PRECIO DESDE</small><strong>${startingPriceLabel(product)} <em>/ unidad</em></strong></span><p>El precio final se confirma según la personalización y la cantidad.</p></div>`:""}<div><small>Pedido mínimo</small><strong>${minimum} ${minimum===1?"unidad":"unidades"}</strong></div><div><small>Producción</small><strong>Local</strong></div></div>
         <div class="detail-assurance" data-entry><span><i class="ph ph-check-circle" aria-hidden="true"></i> Material según el uso</span><span><i class="ph ph-check-circle" aria-hidden="true"></i> Precio y plazo antes de fabricar</span><span><i class="ph ph-check-circle" aria-hidden="true"></i> No necesitás archivo 3D</span></div>
-      </div>
-      <div class="detail-visual ${photos.length>1?"has-gallery":"single-image"}" data-entry aria-label="Fotos de ${escapeText(product.name)}">
-        ${photos.length>1?`<div class="detail-gallery-rail" role="group" aria-label="Elegir foto del producto">${photos.map((src,index)=>`<button type="button" data-gallery-index="${index}" class="${selectedIndex===index?"active":""}" aria-label="Ver foto ${index+1} de ${photos.length}" aria-pressed="${selectedIndex===index}"><img src="${escapeText(src)}" alt="" loading="lazy"></button>`).join("")}</div>`:""}
-        <figure class="detail-gallery-stage" style="${productImageStyle(product,true)}"><img id="product-detail-image" src="${escapeText(selectedPhoto)}" alt="${escapeText(selectedIndex===0?product.imageAlt||product.name:`Foto ${selectedIndex+1} de ${product.name}`)}"><figcaption><span>ATRY LAB · ${escapeText(product.group.split(" · ")[0])}</span>${photos.length>1?`<span data-gallery-counter>${String(selectedIndex+1).padStart(2,"0")} / ${String(photos.length).padStart(2,"0")}</span>`:""}</figcaption></figure>
-      </div>
-      <section class="product-config product-wizard" data-entry>
+        <section class="product-config product-wizard" data-entry>
         <div class="product-wizard-top"><div><span>PEDÍ ESTE PRODUCTO</span><strong>Paso ${String(state.detailStep+1).padStart(2,"0")} de ${String(totalSteps).padStart(2,"0")}</strong></div><div class="product-wizard-progress" aria-label="${progress}% completo"><i style="width:${progress}%"></i></div></div>
         <div class="form-alert" id="form-alert" hidden></div>
         <div class="product-wizard-card">${detailWizardField(profile)}</div>
@@ -844,7 +839,12 @@
           <button class="detail-nav-back" data-detail-prev ${state.detailStep===0?"disabled":""}><i class="ph ph-arrow-left"></i> Atrás</button>
           ${state.detailStep<totalSteps-1?`<button class="detail-nav-next" data-detail-next>Continuar <i class="ph ph-arrow-right"></i></button>`:`<span class="detail-ready-note"><i class="ph ph-check"></i> Listo para sumar</span>`}
         </div>
-      </section>
+        </section>
+      </div>
+      <div class="detail-visual ${photos.length>1?"has-gallery":"single-image"}" data-entry aria-label="Fotos de ${escapeText(product.name)}">
+        ${photos.length>1?`<div class="detail-gallery-rail" role="group" aria-label="Elegir foto del producto">${photos.map((src,index)=>`<button type="button" data-gallery-index="${index}" class="${selectedIndex===index?"active":""}" aria-label="Ver foto ${index+1} de ${photos.length}" aria-pressed="${selectedIndex===index}"><img src="${escapeText(src)}" alt="" loading="lazy"></button>`).join("")}</div>`:""}
+        <figure class="detail-gallery-stage" style="${productImageStyle(product,true)}"><img id="product-detail-image" src="${escapeText(selectedPhoto)}" alt="${escapeText(selectedIndex===0?product.imageAlt||product.name:`Foto ${selectedIndex+1} de ${product.name}`)}"><figcaption><span>ATRY LAB · ${escapeText(product.group.split(" · ")[0])}</span>${photos.length>1?`<span data-gallery-counter>${String(selectedIndex+1).padStart(2,"0")} / ${String(photos.length).padStart(2,"0")}</span>`:""}</figcaption></figure>
+      </div>
     </section>`;
   }
 

@@ -1,5 +1,5 @@
 /* ATRY fabrication studio — a locally rendered product film. */
-html,body{overflow-x:hidden}
+html,body{overflow-x:clip}
 .home-hero{min-height:660px;margin:-25px calc((100vw - min(calc(100vw - 64px),var(--max)))/-2) 34px;padding:55px max(32px,calc((100vw - var(--max))/2));position:relative;overflow:hidden;grid-template-columns:minmax(0,1.03fr) minmax(0,.97fr);gap:clamp(30px,4vw,68px);align-items:center;color:#f5fbfd;background:radial-gradient(circle at 82% 36%,#17404f 0,#102932 24%,#0c1b22 47%,#081116 76%),linear-gradient(135deg,#101b21,#071014)}
 .home-hero:before{display:none}
 .home-hero .location-line{color:#9fb3bb}.home-hero .location-line strong{color:#edf9fc}.home-hero .location-icon{color:#7ce8fa;background:rgba(103,227,250,.11)}
